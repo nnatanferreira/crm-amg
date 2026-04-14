@@ -5,7 +5,7 @@ import cloudinary.uploader
 import pandas as pd
 import requests
 
-# --- 1. CONFIGURAÇÕES ---
+# --- 1. CONFIGURAÇÕES (API & CLOUDINARY) ---
 API_FIPE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0ZDk3YTE4NC1kOGIzLTQwOTEtOWVhOC1kNWQ0ZGUzYWZiNWQiLCJlbWFpbCI6Im5uYXRhbmZlcnJlaXJhQGdtYWlsLmNvbSIsImlhdCI6MTc3NjIwMTM4NH0.v_0pe0vEEuLCIMenEsLWZXSl_hdkXVq4oTzfhT4kdXM"
 
 cloudinary.config( 
@@ -31,7 +31,7 @@ def consultar_dados_veiculo(placa):
     except:
         return None
 
-# --- 3. ESTILO VISUAL (MOBILE-READY & ALTO CONTRASTE) ---
+# --- 3. ESTILO VISUAL OTIMIZADO ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] { background-color: #f0f2f6 !important; color: #000000 !important; }
@@ -43,7 +43,7 @@ st.markdown("""
         border: 2px solid #000000 !important; color: #000000 !important; background-color: #ffffff !important;
     }
 
-    /* Botões Verdes com Texto Branco */
+    /* BOTOES COM TEXTO BRANCO E FUNDO VERDE */
     button, .stButton>button, div.stFormSubmitButton>button {
         background-color: #1e7e34 !important;
         color: #ffffff !important;
@@ -56,11 +56,10 @@ st.markdown("""
         border: none !important;
     }
 
-    /* Botões de Upload (estilo escuro para destacar) */
+    /* Botão de Upload */
     [data-testid="stFileUploader"] section button {
         background-color: #333333 !important;
         color: #ffffff !important;
-        height: 40px !important;
     }
 
     .car-card { border: 2px solid #000000; border-radius: 15px; padding: 15px; background-color: #ffffff; margin-bottom: 15px; }
@@ -80,10 +79,10 @@ if "autenticado" not in st.session_state:
             if u == "amgmultimarcas" and p == "amg0031":
                 st.session_state["autenticado"] = True
                 st.rerun()
-            else: st.error("Erro nos dados.")
+            else: st.error("Dados de acesso incorretos.")
 else:
-    menu = st.sidebar.radio("Menu:", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
-    if st.sidebar.button("Sair"):
+    menu = st.sidebar.radio("Navegar:", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
+    if st.sidebar.button("🚪 Sair"):
         st.session_state.clear()
         st.rerun()
 
@@ -103,7 +102,7 @@ else:
                     if res:
                         st.session_state.dados_fipe = res.get("data", res)
                         st.success("Dados preenchidos!")
-            else: st.warning("Digite a placa.")
+                    else: st.error("Erro na consulta.")
 
         with st.form("form_veiculo", clear_on_submit=True):
             f = st.session_state.dados_fipe
@@ -111,7 +110,7 @@ else:
             
             marca = st.text_input("Marca", value=f.get("marca", ""))
             modelo = st.text_input("Modelo e Versão", value=f.get("modelo", ""))
-            placa_f = st.text_input("Placa", value=f.get("placa", placa_in))
+            placa_f = st.text_input("Placa Final", value=f.get("placa", placa_in))
             
             c1, c2, c3 = st.columns(3)
             with c1:
@@ -122,9 +121,8 @@ else:
                 chassi = st.text_input("Chassi", value=f.get("chassi", ""))
             with c3:
                 cor = st.text_input("Cor", value=f.get("cor", ""))
-                combustivel = st.text_input("Combustível", value=f.get("combustivel", ""))
+                comb = st.text_input("Combustível", value=f.get("combustivel", ""))
 
-            st.markdown("---")
             v1, v2 = st.columns(2)
             with v1:
                 preco_f = f.get("preco_fipe", 0.0)
@@ -148,7 +146,7 @@ else:
             
             doc_t = st.file_uploader("📂 Foto Documento Titular", type=['jpg','png','jpeg'])
 
-            if st.form_submit_button("🚀 SALVAR NO ESTOQUE AMG"):
+            if st.form_submit_button("🚀 SALVAR EM ESTOQUE"):
                 if modelo and placa_f and foto_v:
                     with st.spinner('Salvando...'):
                         img_car = cloudinary.uploader.upload(foto_v)
@@ -156,14 +154,16 @@ else:
                         if doc_t:
                             img_doc = cloudinary.uploader.upload(doc_t)['secure_url']
                         
-                        try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-                        except: df = pd.DataFrame()
+                        try:
+                            df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
+                        except:
+                            df = pd.DataFrame()
 
                         novo = pd.DataFrame([{
                             "marca": marca, "modelo": modelo, "placa": placa_f.upper(),
                             "ano_fab": str(ano_fab), "ano_mod": str(ano_mod),
                             "renavam": renavam, "chassi": chassi.upper(),
-                            "cor": cor, "combustivel": combustivel, "preco": preco, "km": km,
+                            "cor": cor, "combustivel": comb, "preco": preco, "km": km,
                             "foto": img_car['secure_url'], "nome_titular": nome_t,
                             "cpf_titular": cpf_t, "rg_titular": rg_t,
                             "endereco_titular": end_t, "doc_titular": img_doc
@@ -172,31 +172,38 @@ else:
                         st.session_state.dados_fipe = {}
                         st.success("Veículo Cadastrado!")
                         st.rerun()
-                else: st.warning("Modelo, Placa e Foto são obrigatórios.")
+                else: st.warning("Obrigatório: Modelo, Placa e Foto do Carro.")
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
-        try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-        except: df = pd.DataFrame()
+        try:
+            df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
+        except:
+            df = pd.DataFrame()
 
-        if df.empty: st.info("Estoque vazio.")
+        if df.empty:
+            st.info("Estoque vazio.")
         else:
             for i, r in df.iterrows():
+                v_foto = r.get('foto', '')
+                v_mod = r.get('modelo', 'Sem Modelo')
+                v_pla = r.get('placa', '---')
+                v_pre = r.get('preco', 0.0)
+                
                 st.markdown(f"""
                     <div class="car-card">
-                        <img src="{r.get('foto','')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
-                        <h3>{r.get('modelo','-')}</h3>
-                        <p class="preco-destaque">R$ {float(r.get('preco',0)):,.2f}</p>
-                        <p><b>Placa:</b> {r.get('placa','-')} | <b>Ano:</b> {r.get('ano_fab','')}/{r.get('ano_mod','')}</p>
+                        <img src="{v_foto}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
+                        <h3>{v_mod}</h3>
+                        <p class="preco-destaque">R$ {float(v_pre):,.2f}</p>
+                        <p><b>Placa:</b> {v_pla} | <b>Ano:</b> {r.get('ano_fab','')}/{r.get('ano_mod','')}</p>
                         <p><b>KM:</b> {r.get('km',0)} | <b>Cor:</b> {r.get('cor','')}</p>
-                        {f"<p><b>Titular:</b> {r.get('nome_titular','')}</p>" if r.get('nome_titular','') else ""}
                     </div>
                 """, unsafe_allow_html=True)
                 
                 if r.get('doc_titular',''):
-                    st.link_button("📂 Ver Documento", r['doc_titular'], use_container_width=True)
+                    st.link_button("📂 Ver Documento Titular", r['doc_titular'], use_container_width=True)
                 
-                if st.button(f"🗑️ Excluir {r.get('placa','')}", key=f"del_{i}", use_container_width=True):
+                if st.button(f"🗑️ Excluir {v_pla}", key=f"del_{i}", use_container_width=True):
                     conn.update(worksheet="Estoque", data=df.drop(i))
                     st.rerun()
                 st.markdown("---")
