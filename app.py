@@ -2,117 +2,164 @@ import streamlit as st
 import pandas as pd
 from PIL import Image
 
-# Configuração da Página
+# 1. Configuração de Página
 st.set_page_config(page_title="CRM Amg Multimarcas", page_icon="🚗", layout="wide")
 
-# --- ESTILIZAÇÃO PARA FICAR IGUAL AO SITE ---
+# 2. Estilização Avançada (Foco em UI/UX de Loja de Veículos)
 st.markdown("""
     <style>
-    .stApp { background-color: #f8f9fa; }
+    .stApp { background-color: #f4f7f9; }
+    
+    /* Card do Veículo Estilo Marketplace */
     .car-card {
         background-color: white;
-        border: 1px solid #ddd;
-        border-radius: 12px;
-        padding: 20px;
-        margin-bottom: 25px;
-        box-shadow: 0px 4px 6px rgba(0,0,0,0.05);
+        border-radius: 15px;
+        padding: 0px;
+        border: 1px solid #e0e6ed;
+        margin-bottom: 30px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: row;
     }
+    
     .price-tag {
-        color: #28a745;
-        font-size: 24px;
-        font-weight: bold;
-        margin: 10px 0;
+        color: #1a1a1a;
+        font-size: 28px;
+        font-weight: 800;
+        margin: 5px 0;
     }
-    .tag {
-        background-color: #f1f3f5;
-        color: #495057;
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-size: 14px;
+
+    .spec-tag {
+        background-color: #f8f9fa;
+        color: #5f6368;
+        padding: 5px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
         margin-right: 8px;
-        font-weight: 500;
-        display: inline-block;
+        border: 1px solid #eee;
     }
-    h1, h2, h3 { color: #1a1a1a !important; }
+
+    /* Customização dos Inputs */
+    .stTextInput>div>div>input, .stSelectbox>div>div>div {
+        border-radius: 10px !important;
+    }
+    
+    .main-title {
+        text-align: center;
+        font-weight: 900;
+        letter-spacing: -1px;
+        color: #1a1a1a;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- LOGIN ---
-def login():
-    if "autenticado" not in st.session_state:
-        st.markdown("<h2 style='text-align: center;'>🔐 Painel Administrativo AMG</h2>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1,1,1])
-        with col2:
+# --- LÓGICA DE ACESSO ---
+if "autenticado" not in st.session_state:
+    st.markdown("<h2 style='text-align: center; margin-top: 50px;'>🔐 CRM AMG MULTIMARCAS</h2>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1,1,1])
+    with col2:
+        with st.form("login"):
             u = st.text_input("Usuário")
             p = st.text_input("Senha", type="password")
-            if st.button("Entrar", use_container_width=True):
+            if st.form_submit_button("Acessar Painel", use_container_width=True):
                 if u == "amgmultimarcas" and p == "amg0031":
                     st.session_state["autenticado"] = True
                     st.rerun()
                 else:
-                    st.error("Dados incorretos")
-        return False
-    return True
-
-if login():
+                    st.error("Credenciais inválidas")
+else:
+    # --- INTERFACE DO CRM ---
     if 'estoque_dados' not in st.session_state:
         st.session_state.estoque_dados = []
 
-    # LOGO E TÍTULO
-    st.markdown("<h1 style='text-align: center; margin-bottom:0;'>AMG <span style='font-weight:200;'>MULTIMARCAS</span></h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #666;'>Gestão de Estoque e Tráfego</p>", unsafe_allow_html=True)
-    st.divider()
+    st.markdown("<h1 class='main-title'>AMG <span style='font-weight:100;'>MULTIMARCAS</span></h1>", unsafe_allow_html=True)
+    
+    menu = st.sidebar.radio("PAINEL DE CONTROLE", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque", "📊 Leads & Vendas"])
 
-    aba = st.sidebar.radio("Navegação", ["📦 Cadastrar Carro", "🚘 Ver Estoque (Site)", "📈 Leads"])
-
-    if aba == "📦 Cadastrar Carro":
-        st.subheader("Cadastrar Veículo no Sistema")
-        with st.form("form_carro", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            with c1:
-                marca_modelo = st.text_input("Marca e Modelo (Ex: Nissan Frontier XE)")
+    # --- ABA 1: CADASTRO IGUAL AO SITE ---
+    if menu == "➕ Cadastrar Veículo":
+        st.subheader("📝 Detalhes do Veículo")
+        
+        with st.form("cadastro_completo", clear_on_submit=True):
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                marca = st.selectbox("Marca", ["Ford", "Chevrolet", "Volkswagen", "Fiat", "Toyota", "Hyundai", "Honda", "Nissan", "Mitsubishi", "Outra"])
+                modelo = st.text_input("Modelo e Versão (Ex: Frontier 2.5 Diesel 4x4)")
                 ano = st.text_input("Ano/Modelo (Ex: 2013/2013)")
-                km = st.number_input("Quilometragem", min_value=0)
-            with c2:
-                valor = st.number_input("Preço de Venda (R$)", min_value=0)
+            
+            with col2:
+                preco = st.number_input("Preço de Venda (R$)", min_value=0, step=500)
+                km = st.number_input("Quilometragem Atual", min_value=0, step=1000)
+                cor = st.text_input("Cor do Veículo")
+            
+            with col3:
+                combustivel = st.selectbox("Combustível", ["Diesel", "Flex", "Gasolina", "Híbrido", "Elétrico"])
                 cambio = st.selectbox("Câmbio", ["Automático", "Manual"])
-                foto_arquivo = st.file_uploader("Carregar Foto do Veículo", type=['jpg', 'jpeg', 'png'])
+                placa = st.text_input("Final da Placa")
+
+            st.divider()
             
-            enviar = st.form_submit_button("PUBLICAR NO CRM")
-            
-            if enviar:
-                if marca_modelo and foto_arquivo:
-                    # Guardamos a imagem em memória para exibição imediata
-                    img = Image.open(foto_arquivo)
+            c_foto, c_desc = st.columns([1, 2])
+            with c_foto:
+                foto_input = st.file_uploader("📷 Foto Principal", type=['jpg', 'png', 'jpeg'])
+            with c_desc:
+                opcionais = st.multiselect("Opcionais de Destaque", ["Ar Condicionado", "Direção Hidráulica", "Vidros Elétricos", "Teto Solar", "Tração 4x4", "Bancos em Couro", "Multimídia"])
+                obs = st.text_area("Descrição para o Anúncio (O que vai pro Facebook/Site)")
+
+            if st.form_submit_button("🚀 PUBLICAR VEÍCULO", use_container_width=True):
+                if modelo and foto_input:
+                    # Salva o objeto da imagem
+                    img = Image.open(foto_input)
                     st.session_state.estoque_dados.append({
-                        "nome": marca_modelo, "ano": ano, "km": km,
-                        "valor": valor, "cambio": cambio, "foto": img
+                        "marca": marca, "modelo": modelo, "ano": ano, "preco": preco,
+                        "km": km, "cor": cor, "combustivel": combustivel, "cambio": cambio,
+                        "foto": img, "obs": obs, "opcionais": opcionais
                     })
-                    st.success(f"{marca_modelo} publicado com sucesso!")
+                    st.success(f"Sucesso! {modelo} agora faz parte do seu estoque.")
                 else:
-                    st.error("Por favor, preencha o nome e carregue uma foto.")
+                    st.warning("Preencha o modelo e adicione uma foto.")
 
-    elif aba == "🚘 Ver Estoque (Site)":
-        st.subheader("Vitrine de Veículos")
+    # --- ABA 2: ESTOQUE ESTILO VITRINE ---
+    elif menu == "📑 Gerenciar Estoque":
+        st.subheader(f"🚘 Seu Pátio ({len(st.session_state.estoque_dados)} veículos)")
+        
         if not st.session_state.estoque_dados:
-            st.info("Nenhum carro cadastrado ainda.")
-        else:
-            for carro in st.session_state.estoque_dados:
-                with st.container():
-                    col_img, col_info = st.columns([1, 1.5])
-                    with col_img:
-                        st.image(carro["foto"], use_container_width=True)
-                    with col_info:
-                        st.markdown(f"## {carro['nome']}")
-                        st.markdown(f"<div class='price-tag'>R$ {carro['valor']:,.2f}</div>", unsafe_allow_html=True)
-                        st.markdown(f"""
-                            <span class='tag'>📅 {carro['ano']}</span>
-                            <span class='tag'>🛣️ {carro['km']:,} KM</span>
-                            <span class='tag'>⚙️ {carro['cambio']}</span>
-                        """, unsafe_allow_html=True)
-                        st.write("")
-                        if st.button(f"Anunciar no Meta", key=carro['nome']):
-                            st.toast("Preparando criativo para o Facebook...")
-                    st.divider()
+            st.info("O estoque está vazio. Vá em 'Cadastrar Veículo' para começar.")
+        
+        for idx, carro in enumerate(st.session_state.estoque_dados):
+            with st.container():
+                # Layout de Card Profissional
+                col_img, col_info = st.columns([1, 1.8])
+                
+                with col_img:
+                    st.image(carro["foto"], use_container_width=True)
+                
+                with col_info:
+                    st.markdown(f"### {carro['marca']} {carro['modelo']}")
+                    st.markdown(f"<div class='price-tag'>R$ {carro['preco']:,.2f}</div>", unsafe_allow_html=True)
+                    
+                    # Tags de specs
+                    st.markdown(f"""
+                        <span class="spec-tag">📅 {carro['ano']}</span>
+                        <span class="spec-tag">🛣️ {carro['km']:,} KM</span>
+                        <span class="spec-tag">⚙️ {carro['cambio']}</span>
+                        <span class="spec-tag">⛽ {carro['combustivel']}</span>
+                        <span class="spec-tag">🎨 {carro['cor']}</span>
+                    """, unsafe_allow_html=True)
+                    
+                    st.write(f"**Descrição:** {carro['obs'][:150]}...")
+                    
+                    # Botões de ação
+                    c_btn1, c_btn2 = st.columns(2)
+                    with c_btn1:
+                        if st.button(f"📢 Criar Anúncio Meta", key=f"ads_{idx}"):
+                            st.toast("Gerando criativo...")
+                    with c_btn2:
+                        if st.button(f"🗑️ Remover", key=f"del_{idx}"):
+                            st.session_state.estoque_dados.pop(idx)
+                            st.rerun()
+                st.divider()
 
-    st.sidebar.button("Sair", on_click=lambda: st.session_state.clear())
+    st.sidebar.button("Logoff", on_click=lambda: st.session_state.clear())
