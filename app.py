@@ -20,18 +20,22 @@ BASE_URL = "https://fipe.parallelum.com.br/api/v2/cars"
 
 @st.cache_data(ttl=3600)
 def get_marcas():
-    return requests.get(f"{BASE_URL}/brands").json()
+    try: return requests.get(f"{BASE_URL}/brands").json()
+    except: return []
 
 def get_modelos(brand_id):
-    return requests.get(f"{BASE_URL}/brands/{brand_id}/models").json()
+    try: return requests.get(f"{BASE_URL}/brands/{brand_id}/models").json()
+    except: return []
 
 def get_anos(brand_id, model_id):
-    return requests.get(f"{BASE_URL}/brands/{brand_id}/models/{model_id}/years").json()
+    try: return requests.get(f"{BASE_URL}/brands/{brand_id}/models/{model_id}/years").json()
+    except: return []
 
 def get_dados_finais(brand_id, model_id, year_id):
-    return requests.get(f"{BASE_URL}/brands/{brand_id}/models/{model_id}/years/{year_id}").json()
+    try: return requests.get(f"{BASE_URL}/brands/{brand_id}/models/{model_id}/years/{year_id}").json()
+    except: return {}
 
-# --- 3. ESTILO VISUAL (MESMO QUE VOCÊ GOSTOU) ---
+# --- 3. ESTILO VISUAL ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] { background-color: #f0f2f6 !important; color: #000000 !important; }
@@ -46,7 +50,6 @@ st.markdown("""
         height: 60px !important; width: 100% !important; border: none !important;
     }
     .car-card { border: 2px solid #000000; border-radius: 15px; padding: 15px; background-color: #ffffff; margin-bottom: 15px; }
-    .preco-destaque { color: #1e7e34 !important; font-size: 1.6rem !important; font-weight: 900 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -58,122 +61,118 @@ if "autenticado" not in st.session_state:
     with st.form("login"):
         u = st.text_input("Usuário")
         p = st.text_input("Senha", type="password")
-        if st.form_submit_button("ACESSAR SISTEMA"):
+        if st.form_submit_button("ENTRAR"):
             if u == "amgmultimarcas" and p == "amg0031":
                 st.session_state["autenticado"] = True
                 st.rerun()
-            else: st.error("Acesso Negado")
+            else: st.error("Dados incorretos.")
 else:
     menu = st.sidebar.radio("Navegação", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
     if st.sidebar.button("Sair"):
         st.session_state.clear()
         st.rerun()
 
-    # --- ABA: CADASTRAR ---
     if menu == "➕ Cadastrar Veículo":
-        st.markdown("## 📝 Cadastro via Tabela FIPE")
+        st.markdown("## 📝 Cadastro de Veículo")
         
-        # Etapa 1: Marca
+        # Seleção FIPE
         marcas = get_marcas()
         dict_marcas = {m['name']: m['code'] for m in marcas}
         marca_n = st.selectbox("1. Selecione a Marca", options=[""] + sorted(list(dict_marcas.keys())))
 
         if marca_n:
-            # Etapa 2: Modelo
             modelos = get_modelos(dict_marcas[marca_n])
             dict_modelos = {m['name']: m['code'] for m in modelos}
             modelo_n = st.selectbox("2. Selecione o Modelo", options=[""] + sorted(list(dict_modelos.keys())))
 
             if modelo_n:
-                # Etapa 3: Ano
-                anos = get_anos(dict_marcas[marca_n], dict_modelos[modelo_n])
-                dict_anos = {a['name']: a['code'] for a in anos}
-                ano_n = st.selectbox("3. Selecione o Ano/Combustível", options=[""] + list(dict_anos.keys()))
+                anos_fipe = get_anos(dict_marcas[marca_n], dict_modelos[modelo_n])
+                dict_anos = {a['name']: a['code'] for a in anos_fipe}
+                ano_fipe_sel = st.selectbox("3. Selecione o Ano FIPE", options=[""] + list(dict_anos.keys()))
 
-                if ano_n:
-                    # Carrega dados da FIPE para preencher o formulário
-                    dados_fipe = get_dados_finais(dict_marcas[marca_n], dict_modelos[modelo_n], dict_anos[ano_n])
+                if ano_fipe_sel:
+                    dados = get_dados_finais(dict_marcas[marca_n], dict_modelos[modelo_n], dict_anos[ano_fipe_sel])
                     
                     with st.form("form_cadastro", clear_on_submit=True):
                         st.subheader("🚗 Detalhes do Veículo")
                         
+                        # Preparar lista de Ano Fabricação/Modelo (Ex: 2024/2025)
+                        # Geramos combinações: Ano/Ano e Ano/Ano+1
+                        lista_anos_combinados = []
+                        for a in range(2027, 1994, -1):
+                            lista_anos_combinados.append(f"{a}/{a+1}")
+                            lista_anos_combinados.append(f"{a}/{a}")
+                        
+                        # Sugestão baseada na FIPE
+                        ano_fipe_num = int(dados.get('modelYear', 2024))
+                        sugestao = f"{ano_fipe_num-1}/{ano_fipe_num}"
+                        
                         col1, col2 = st.columns(2)
                         with col1:
-                            marca_final = st.text_input("Marca", value=dados_fipe.get('brand', marca_n))
-                            modelo_final = st.text_input("Modelo", value=dados_fipe.get('model', modelo_n))
+                            marca_f = st.text_input("Marca", value=dados.get('brand', marca_n))
+                            modelo_f = st.text_input("Modelo", value=dados.get('model', modelo_n))
                             placa = st.text_input("Placa", placeholder="ABC1D23").upper()
+                        
                         with col2:
-                            ano_mod = st.text_input("Ano Modelo", value=str(dados_fipe.get('modelYear', '')))
-                            combust = st.text_input("Combustível", value=dados_fipe.get('fuel', ''))
+                            ano_combo = st.selectbox("Ano Fabricação/Modelo", options=lista_anos_combinados, 
+                                                   index=lista_anos_combinados.index(sugestao) if sugestao in lista_anos_combinados else 0)
                             cor = st.text_input("Cor")
+                            combust = st.text_input("Combustível", value=dados.get('fuel', ''))
 
-                        c3, c4, c5 = st.columns(3)
-                        renavam = c3.text_input("Renavam")
-                        chassi = c4.text_input("Chassi").upper()
-                        ano_fab = c5.text_input("Ano Fabricação")
+                        c1, c2 = st.columns(2)
+                        renavam = c1.text_input("Renavam")
+                        chassi = c2.text_input("Chassi").upper()
 
                         v1, v2 = st.columns(2)
-                        # Limpeza do preço FIPE para número
-                        p_fipe_str = dados_fipe.get('price', '0').replace('R$ ', '').replace('.', '').replace(',', '.')
-                        preco_venda = v1.number_input("Preço de Venda (R$)", value=float(p_fipe_str))
+                        p_fipe_str = dados.get('price', '0').replace('R$ ', '').replace('.', '').replace(',', '.')
+                        preco = v1.number_input("Preço de Venda (R$)", value=float(p_fipe_str))
                         km = v2.number_input("Quilometragem", min_value=0)
 
                         foto_v = st.file_uploader("📷 Foto do Veículo", type=['jpg','png','jpeg'])
-
+                        
                         st.markdown("---")
-                        st.subheader("👤 Proprietário (Opcional)")
-                        t_nome = st.text_input("Nome Completo")
-                        t_doc = st.file_uploader("📂 Foto Documento", type=['jpg','png','jpeg'])
+                        t_nome = st.text_input("Nome do Titular")
+                        t_doc = st.file_uploader("📂 Documento do Titular", type=['jpg','png','jpeg'])
 
-                        if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
-                            if modelo_final and placa and foto_v:
-                                with st.spinner("Salvando dados e imagens..."):
-                                    # Upload Cloudinary
+                        if st.form_submit_button("🚀 SALVAR VEÍCULO"):
+                            if placa and foto_v:
+                                with st.spinner("Salvando..."):
+                                    # Separar os anos selecionados
+                                    ano_f_save, ano_m_save = ano_combo.split('/')
+                                    
                                     url_foto = cloudinary.uploader.upload(foto_v)['secure_url']
                                     url_doc = cloudinary.uploader.upload(t_doc)['secure_url'] if t_doc else ""
-
-                                    # Lógica Google Sheets
-                                    try:
-                                        df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-                                    except:
-                                        df = pd.DataFrame()
+                                    
+                                    try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
+                                    except: df = pd.DataFrame()
 
                                     novo = pd.DataFrame([{
-                                        "marca": marca_final, "modelo": modelo_final, "placa": placa,
-                                        "ano_fab": ano_fab, "ano_mod": ano_mod, "renavam": renavam,
+                                        "marca": marca_f, "modelo": modelo_f, "placa": placa,
+                                        "ano_fab": ano_f_save, "ano_mod": ano_m_save, "renavam": renavam,
                                         "chassi": chassi, "cor": cor, "combustivel": combust,
-                                        "preco": preco_venda, "km": km, "foto": url_foto,
+                                        "preco": preco, "km": km, "foto": url_foto,
                                         "nome_titular": t_nome, "doc_titular": url_doc
                                     }])
-
                                     conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True))
-                                    st.success("Veículo cadastrado com sucesso!")
+                                    st.success(f"Veículo {ano_combo} Salvo!")
                                     st.rerun()
-                            else:
-                                st.warning("Preencha Placa, Modelo e Foto do Veículo.")
+                            else: st.warning("Placa e Foto são obrigatórios.")
 
-    # --- ABA: GERENCIAR ---
     elif menu == "📑 Gerenciar Estoque":
-        try:
-            df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-        except:
-            df = pd.DataFrame()
+        try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
+        except: df = pd.DataFrame()
 
-        if df.empty:
-            st.info("Estoque vazio.")
+        if df.empty: st.info("Estoque vazio.")
         else:
             for i, r in df.iterrows():
                 st.markdown(f"""
                     <div class="car-card">
-                        <img src="{r.get('foto', '')}" style="width:100%; border-radius:10px; height:220px; object-fit:cover;">
+                        <img src="{r.get('foto', '')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
                         <h3>{r.get('modelo', 'Sem Nome')}</h3>
-                        <p class="preco-destaque">R$ {float(r.get('preco', 0)):,.2f}</p>
-                        <p><b>Placa:</b> {r.get('placa', '-')} | <b>KM:</b> {r.get('km', 0)}</p>
-                        <p><b>Ano:</b> {r.get('ano_mod', '-')} | <b>Cor:</b> {r.get('cor', '-')}</p>
+                        <p style="color:#1e7e34; font-size:1.4rem; font-weight:900;">R$ {float(r.get('preco', 0)):,.2f}</p>
+                        <p><b>Placa:</b> {r.get('placa', '-')} | <b>Ano:</b> {r.get('ano_fab', '')}/{r.get('ano_mod', '')}</p>
                     </div>
                 """, unsafe_allow_html=True)
-                
                 if st.button(f"🗑️ Excluir {r.get('placa', i)}", key=f"del_{i}"):
                     conn.update(worksheet="Estoque", data=df.drop(i))
                     st.rerun()
-                st.markdown("---")
