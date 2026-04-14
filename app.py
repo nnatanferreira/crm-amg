@@ -15,7 +15,7 @@ cloudinary.config(
 # Configuração da Página
 st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="wide")
 
-# --- 2. SUPER LAYOUT (TABELA, FONTE GRANDE E CORES CLARAS) ---
+# --- 2. SUPER LAYOUT (TABELA, FONTES GRANDES E MENU AMPLIADO) ---
 st.markdown("""
     <style>
     /* Forçar tema claro */
@@ -24,54 +24,72 @@ st.markdown("""
         color: #1a1a1a !important;
     }
     
-    /* Fontes muito maiores para leitura fácil */
-    h1 { font-size: 3rem !important; font-weight: 800 !important; }
-    h2 { font-size: 2.2rem !important; margin-bottom: 20px !important; }
-    h3 { font-size: 1.8rem !important; font-weight: 700 !important; color: #000 !important; margin-bottom: 10px !important; }
+    /* Fontes do corpo e títulos */
+    html { font-size: 20px !important; }
+    h1 { font-size: 3.5rem !important; font-weight: 800 !important; }
+    h2 { font-size: 2.5rem !important; margin-bottom: 25px !important; }
+    h3 { font-size: 2rem !important; font-weight: 700 !important; color: #000 !important; }
     
-    /* Textos dos detalhes do carro */
+    /* MENU LATERAL AMPLIADO */
+    [data-testid="stSidebar"] {
+        min-width: 350px !important;
+        max-width: 350px !important;
+        background-color: #ffffff !important;
+    }
+    
+    /* Texto das opções do Menu Radio */
+    [data-testid="stSidebar"] .st-emotion-cache-17l243g {
+        font-size: 1.5rem !important;
+        font-weight: 600 !important;
+        padding: 10px 0 !important;
+    }
+    
+    /* Estilo dos textos dos detalhes do carro */
     .info-carro { 
-        font-size: 1.4rem !important; 
+        font-size: 1.5rem !important; 
         line-height: 1.6 !important;
         color: #333 !important;
     }
 
     .preco-destaque { 
         color: #1e7e34 !important; 
-        font-size: 2.2rem !important; 
+        font-size: 2.5rem !important; 
         font-weight: 900 !important;
-        margin: 10px 0px !important;
+        margin: 15px 0px !important;
     }
 
     /* Estilo do Card em Grade */
     .car-card { 
-        border: 1px solid #ddd; 
-        border-radius: 15px; 
-        padding: 20px; 
+        border: 2px solid #eee; 
+        border-radius: 20px; 
+        padding: 25px; 
         background-color: #ffffff;
-        box-shadow: 0px 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0px 6px 20px rgba(0,0,0,0.1);
         height: 100%;
         display: flex;
         flex-direction: column;
     }
 
-    .img-container {
+    .img-container img {
         width: 100%;
+        border-radius: 15px;
+        height: auto;
+        display: block;
         margin-bottom: 15px;
     }
 
-    .img-container img {
-        width: 100%;
-        border-radius: 10px;
-        height: auto;
-        display: block;
-    }
-
-    /* Botão Excluir */
+    /* Botões Gerais */
     .stButton button {
-        font-size: 1.1rem !important;
+        font-size: 1.3rem !important;
         font-weight: bold !important;
-        border-radius: 8px !important;
+        height: 60px !important;
+        border-radius: 12px !important;
+    }
+    
+    /* Inputs Maiores */
+    .stTextInput input, .stNumberInput input, .stSelectbox select {
+        font-size: 1.3rem !important;
+        height: 55px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -99,8 +117,9 @@ if "autenticado" not in st.session_state:
                     st.error("Dados incorretos.")
 else:
     # Barra Lateral
-    st.sidebar.markdown("### ⚙️ Menu")
+    st.sidebar.markdown("# ⚙️ MENU")
     menu = st.sidebar.radio("Navegar:", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
+    st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Sair"):
         st.session_state.clear()
         st.rerun()
@@ -129,11 +148,11 @@ else:
                         novo = pd.DataFrame([{"marca": marca, "modelo": modelo, "ano": ano, "preco": preco, "km": km, "foto": url_foto}])
                         df_final = pd.concat([df_atual, novo], ignore_index=True)
                         conn.update(data=df_final)
-                        st.success(f"{modelo} cadastrado!")
+                        st.success(f"{modelo} cadastrado com sucesso!")
                 else:
                     st.warning("Preencha modelo e foto.")
 
-    # --- ABA: ESTOQUE (LAYOUT EM TABELA/GRADE) ---
+    # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
         try:
             df = conn.read(ttl=0).dropna(how='all')
@@ -142,14 +161,12 @@ else:
             else:
                 st.markdown(f"## 🚘 Estoque Atual ({len(df)} veículos)")
                 
-                # Criar a grade de colunas (3 carros por linha no PC)
                 cols = st.columns(3)
                 
                 for index, row in df.iterrows():
                     p_f = f"R$ {row['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                     k_f = f"{int(row['km']):,}".replace(",", ".")
                     
-                    # Alterna entre as colunas
                     with cols[index % 3]:
                         st.markdown(f"""
                             <div class="car-card">
