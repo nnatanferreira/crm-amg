@@ -4,8 +4,7 @@ import cloudinary
 import cloudinary.uploader
 import pandas as pd
 
-# --- 1. CONFIGURAÇÃO DO CLOUDINARY ---
-# Preencha com seus dados do painel do Cloudinary
+# --- 1. CONFIGURAÇÃO DO CLOUDINARY (MEMORIZADO) ---
 cloudinary.config( 
   cloud_name = "dybos073q", 
   api_key = "332571224149431", 
@@ -13,29 +12,67 @@ cloudinary.config(
   secure = True
 )
 
-# Configuração visual da página
+# Configuração da Página
 st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="wide")
 
-# --- 2. ESTILIZAÇÃO CSS ---
+# --- 2. SUPER LAYOUT (CLARO, FONTE GRANDE E OTIMIZADO) ---
 st.markdown("""
     <style>
-    .main { background-color: #ffffff; }
-    h1, h2, h3, p, label { color: #1a1a1a !important; }
-    .car-card { 
-        border: 1px solid #eee; 
-        border-radius: 12px; 
-        padding: 20px; 
-        margin-bottom: 20px; 
-        background-color: #fdfdfd;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.02);
+    /* Forçar tema claro e fontes grandes */
+    html, body, [data-testid="stAppViewContainer"] {
+        background-color: #f8f9fa !important;
+        color: #1a1a1a !important;
     }
-    .preco-destaque { color: #28a745 !important; font-size: 24px; font-weight: bold; }
+    
+    /* Ajuste de fontes gerais */
+    html { font-size: 18px !important; }
+    
+    /* Títulos e textos */
+    h1 { font-size: 2.5rem !important; font-weight: 800 !important; color: #000000 !important; }
+    h2 { font-size: 1.8rem !important; color: #333333 !important; }
+    h3 { font-size: 1.5rem !important; color: #000000 !important; }
+    p, label, span { font-size: 1.1rem !important; color: #1a1a1a !important; font-weight: 500 !important; }
+
+    /* Estilo dos Inputs (campos de texto) */
+    .stTextInput input, .stNumberInput input, .stSelectbox select {
+        font-size: 1.1rem !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+    }
+
+    /* Estilo do Cartão do Carro */
+    .car-card { 
+        border: 1px solid #dddddd; 
+        border-radius: 15px; 
+        padding: 15px; 
+        margin-bottom: 20px; 
+        background-color: #ffffff;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.08);
+    }
+    
+    .preco-destaque { 
+        color: #1e7e34 !important; 
+        font-size: 1.6rem !important; 
+        font-weight: 900 !important;
+        margin: 5px 0px;
+    }
+
+    /* Botão Salvar e Excluir */
+    .stButton button {
+        width: 100% !important;
+        border-radius: 10px !important;
+        font-weight: bold !important;
+        padding: 10px !important;
+        font-size: 1.1rem !important;
+    }
+    
+    /* Ajuste para formulários */
+    [data-testid="stForm"] { background-color: #ffffff !important; border-radius: 15px; padding: 20px; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 3. CONEXÃO COM GOOGLE SHEETS ---
 try:
-    # Conexão usa as credenciais que você colou nos SECRETS do Streamlit
     conn = st.connection("gsheets", type=GSheetsConnection)
     conexao_ok = True
 except Exception as e:
@@ -44,107 +81,102 @@ except Exception as e:
 
 # --- 4. SISTEMA DE LOGIN ---
 if "autenticado" not in st.session_state:
-    st.markdown("<h2 style='text-align: center; padding-top: 50px;'>Painel Administrativo AMG</h2>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1,1.5,1])
-    with col2:
-        u = st.text_input("Usuário")
-        p = st.text_input("Senha", type="password")
-        if st.button("Entrar", use_container_width=True):
-            if u == "amgmultimarcas" and p == "amg0031":
-                st.session_state["autenticado"] = True
-                st.rerun()
-            else:
-                st.error("Usuário ou senha incorretos")
-else:
-    # Cabeçalho após Login
-    st.markdown("<h1 style='text-align: center;'>AMG MULTIMARCAS</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; margin-top: 40px;'>🚗 AMG Multimarcas</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center;'>Painel de Gestão de Estoque</p>", unsafe_allow_html=True)
     
-    if not conexao_ok:
-        st.error(f"Erro de conexão com a planilha: {erro_conexao}")
-        st.stop()
-
-    menu = st.sidebar.radio("Menu Principal", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        with st.form("login"):
+            u = st.text_input("Usuário")
+            p = st.text_input("Senha", type="password")
+            if st.form_submit_button("ACESSAR SISTEMA"):
+                if u == "amgmultimarcas" and p == "amg0031":
+                    st.session_state["autenticado"] = True
+                    st.rerun()
+                else:
+                    st.error("Dados incorretos.")
+else:
+    # Barra Lateral Otimizada
+    st.sidebar.markdown("### ⚙️ Menu AMG")
+    menu = st.sidebar.radio("Escolha uma opção:", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
+    
+    if st.sidebar.button("🚪 Sair"):
+        st.session_state.clear()
+        st.rerun()
 
     # --- ABA: CADASTRAR ---
     if menu == "➕ Cadastrar Veículo":
-        st.subheader("📝 Cadastrar Novo Veículo")
+        st.markdown("## 📝 Novo Cadastro")
         with st.form("form_cadastro", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
-                marca = st.selectbox("Marca", ["Nissan", "Ford", "Chevrolet", "VW", "Fiat", "Toyota", "Honda", "Mitsubishi", "Outra"])
+                marca = st.selectbox("Marca", ["Nissan", "Ford", "Chevrolet", "VW", "Fiat", "Toyota", "Honda", "Mitsubishi", "Renault", "Hyundai", "Jeep", "BMW", "Mercedes", "Outra"])
                 modelo = st.text_input("Modelo e Versão")
-                ano = st.text_input("Ano (ex: 2013/2014)")
+                ano = st.text_input("Ano (ex: 2018/2019)")
             with c2:
-                preco = st.number_input("Preço de Venda (R$)", min_value=0.0, step=500.0)
-                km = st.number_input("Quilometragem", min_value=0)
+                preco = st.number_input("Preço (R$)", min_value=0.0, step=1000.0)
+                km = st.number_input("Quilometragem (KM)", min_value=0)
             
-            foto_arquivo = st.file_uploader("📷 Selecione a Foto", type=['jpg', 'jpeg', 'png'])
+            foto_arquivo = st.file_uploader("📷 Carregar Foto do Veículo", type=['jpg', 'jpeg', 'png'])
             
-            if st.form_submit_button("🚀 SALVAR NO ESTOQUE", use_container_width=True):
+            if st.form_submit_button("🚀 PUBLICAR NO ESTOQUE"):
                 if modelo and foto_arquivo:
-                    with st.spinner('Enviando foto e salvando dados...'):
+                    with st.spinner('Processando imagem e salvando dados...'):
                         try:
-                            # 1. Upload para Cloudinary
+                            # Upload Cloudinary
                             res = cloudinary.uploader.upload(foto_arquivo)
                             url_foto = res['secure_url']
                             
-                            # 2. Ler dados atuais (ttl=0 para não ter atraso)
+                            # Atualizar Planilha
                             df_atual = conn.read(ttl=0).dropna(how='all')
-                            
-                            # 3. Criar nova linha
                             novo_veiculo = pd.DataFrame([{
                                 "marca": marca, "modelo": modelo, "ano": ano,
                                 "preco": preco, "km": km, "foto": url_foto
                             }])
-                            
-                            # 4. Concatenar e Atualizar Planilha
                             df_final = pd.concat([df_atual, novo_veiculo], ignore_index=True)
                             conn.update(data=df_final)
                             
-                            st.success(f"Sucesso! {modelo} já está no sistema.")
+                            st.success(f"Veículo {modelo} cadastrado com sucesso!")
                         except Exception as e:
                             st.error(f"Erro ao salvar: {e}")
                 else:
-                    st.warning("Por favor, preencha o modelo e adicione uma foto.")
+                    st.warning("Preencha todos os campos e adicione uma foto.")
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
         try:
-            # ttl=0 garante que o carro cadastrado agora apareça agora
             df = conn.read(ttl=0).dropna(how='all')
             
             if df.empty:
-                st.info("O estoque está vazio. Use a aba de cadastro!")
+                st.info("Nenhum veículo em estoque.")
             else:
-                st.subheader(f"🚘 Veículos em Exposição ({len(df)})")
+                st.markdown(f"## 🚘 Veículos em Estoque ({len(df)})")
                 
                 for index, row in df.iterrows():
-                    # Formatação de Moeda Brasileira
-                    preco_formatado = f"R$ {row['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                    km_formatado = f"{int(row['km']):,}".replace(",", ".")
+                    p_f = f"R$ {row['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                    k_f = f"{int(row['km']):,}".replace(",", ".")
 
-                    with st.container():
-                        st.markdown('<div class="car-card">', unsafe_allow_html=True)
-                        col_img, col_txt = st.columns([1, 2])
-                        
-                        with col_img:
-                            st.image(row['foto'], use_container_width=True)
-                        
-                        with col_txt:
-                            st.markdown(f"### {row['marca']} {row['modelo']}")
-                            st.markdown(f"<p class='preco-destaque'>{preco_formatado}</p>", unsafe_allow_html=True)
-                            st.write(f"📅 **Ano:** {row['ano']} | 🛣️ **KM:** {km_formatado}")
-                            
-                            # Botão para remover veículo
-                            if st.button(f"🗑️ Excluir {row['modelo']}", key=f"btn_{index}"):
-                                df_novo = df.drop(index)
-                                conn.update(data=df_novo)
-                                st.rerun()
-                        st.markdown('</div>', unsafe_allow_html=True)
+                    # Card Estilizado
+                    st.markdown(f"""
+                        <div class="car-card">
+                            <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                                <div style="flex: 1; min-width: 280px;">
+                                    <img src="{row['foto']}" style="width: 100%; border-radius: 10px; object-fit: cover; max-height: 280px;">
+                                </div>
+                                <div style="flex: 1.5; min-width: 250px;">
+                                    <h3 style="margin: 0; color: #000;">{row['marca']} {row['modelo']}</h3>
+                                    <p class="preco-destaque">{p_f}</p>
+                                    <p style="margin: 5px 0;">📅 <b>Ano:</b> {row['ano']}</p>
+                                    <p style="margin: 5px 0;">🛣️ <b>KM:</b> {k_f}</p>
+                                </div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if st.button(f"🗑️ Excluir {row['modelo']}", key=f"btn_{index}"):
+                        df_novo = df.drop(index)
+                        conn.update(data=df_novo)
+                        st.rerun()
+                    st.markdown("<br>", unsafe_allow_html=True)
         except Exception as e:
-            st.error(f"Não foi possível carregar o estoque: {e}")
-
-    # Botão Sair na Barra Lateral
-    if st.sidebar.button("Sair do Sistema"):
-        st.session_state.clear()
-        st.rerun()
+            st.error(f"Erro ao carregar dados: {e}")
