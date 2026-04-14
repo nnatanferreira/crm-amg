@@ -76,7 +76,6 @@ else:
     # --- ABA: CADASTRAR ---
     if menu == "➕ Cadastrar Veículo":
         st.markdown("## 📝 Novo Cadastro")
-        
         marcas = get_marcas()
         dict_marcas = {m['name']: m['code'] for m in marcas}
         marca_n = st.selectbox("1. Marca", options=[""] + sorted(list(dict_marcas.keys())))
@@ -93,15 +92,10 @@ else:
 
                 if ano_fipe_sel:
                     dados_f = get_dados_finais(dict_marcas[marca_n], dict_modelos[modelo_n], dict_anos[ano_fipe_sel])
-                    
                     with st.form("form_veiculo"):
                         st.subheader("🚗 Detalhes do Veículo")
-                        
-                        lista_anos = []
-                        for a in range(2027, 1994, -1):
-                            lista_anos.append(f"{a}/{a+1}")
-                            lista_anos.append(f"{a}/{a}")
-                        
+                        lista_anos = [f"{a}/{a+1}" for a in range(2027, 1994, -1)] + [f"{a}/{a}" for a in range(2027, 1994, -1)]
+                        lista_anos.sort(reverse=True)
                         try:
                             ano_ref = int(dados_f.get('modelYear', 2024))
                             sugestao_ano = f"{ano_ref-1}/{ano_ref}"
@@ -111,9 +105,7 @@ else:
                         marca_val = c1.text_input("Marca", value=dados_f.get('brand', marca_n))
                         modelo_val = c1.text_input("Modelo", value=dados_f.get('model', modelo_n))
                         placa = c1.text_input("Placa").upper()
-                        
-                        ano_combo = c2.selectbox("Ano Fab/Mod", options=lista_anos, 
-                                               index=lista_anos.index(sugestao_ano) if sugestao_ano in lista_anos else 0)
+                        ano_combo = c2.selectbox("Ano Fab/Mod", options=lista_anos, index=lista_anos.index(sugestao_ano) if sugestao_ano in lista_anos else 0)
                         cor = c2.text_input("Cor")
                         combust = c2.text_input("Combustível", value=dados_f.get('fuel', ''))
 
@@ -121,123 +113,95 @@ else:
                         c3, c4 = st.columns(2)
                         renavam = c3.text_input("Renavam")
                         chassi = c4.text_input("Chassi").upper()
-                        
-                        v1, v2 = st.columns(2)
-                        p_fipe = dados_f.get('price', '0').replace('R$ ', '').replace('.', '').replace(',', '.')
-                        preco = v1.text_input("Valor de Venda (R$)", value=p_fipe)
-                        km = v2.text_input("KM Atual", value="0")
+                        preco = v1 = st.text_input("Valor de Venda (R$)", value=dados_f.get('price', '0'))
+                        km = st.text_input("Quilometragem", value="0")
 
                         foto_v = st.file_uploader("📷 Foto do Veículo (Opcional)", type=['jpg','png','jpeg'])
+                        st.markdown("---")
                         t_nome = st.text_input("Nome do Titular")
                         t_doc = st.file_uploader("📂 Foto Documento Titular", type=['jpg','png','jpeg'])
 
                         if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
-                            r_clean = "".join(filter(str.isdigit, renavam)) if renavam else ""
-                            c_clean = chassi.replace(" ", "").replace("-", "") if chassi else ""
-                            
-                            erro_r = renavam and len(r_clean) not in [9, 11]
-                            erro_c = chassi and len(c_clean) != 17
-                            
-                            if not erro_r and not erro_c and placa:
-                                barra_info = st.info("⏳ Salvando... Por favor, não feche a página.")
-                                try:
-                                    url_img = cloudinary.uploader.upload(foto_v)['secure_url'] if foto_v else ""
-                                    url_doc = cloudinary.uploader.upload(t_doc)['secure_url'] if t_doc else ""
-                                    
-                                    af, am = ano_combo.split('/')
-                                    df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-                                    
-                                    novo = pd.DataFrame([{
-                                        "marca": marca_val, "modelo": modelo_val, "placa": placa,
-                                        "ano_fab": af, "ano_mod": am, "renavam": renavam,
-                                        "chassi": chassi, "cor": cor, "combustivel": combust,
-                                        "preco": preco, "km": km, "foto": url_img,
-                                        "nome_titular": t_nome, "doc_titular": url_doc
-                                    }])
-                                    
-                                    conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True))
-                                    barra_info.empty()
-                                    st.success("✅ Concluído com sucesso!")
-                                    time.sleep(1.5)
-                                    st.rerun()
-                                except Exception as e: st.error(f"Erro ao salvar: {e}")
-                            else:
-                                st.error("Corrija a Placa ou a quantidade de caracteres de Renavam/Chassi.")
+                            if placa:
+                                barra = st.info("⏳ Gravando veículo...")
+                                url_img = cloudinary.uploader.upload(foto_v)['secure_url'] if foto_v else ""
+                                url_doc = cloudinary.uploader.upload(t_doc)['secure_url'] if t_doc else ""
+                                af, am = ano_combo.split('/')
+                                try: df = conn.read(worksheet="Estoque", ttl=0).astype(str)
+                                except: df = pd.DataFrame()
+                                novo = pd.DataFrame([{"marca": marca_val, "modelo": modelo_val, "placa": placa, "ano_fab": af, "ano_mod": am, "renavam": renavam, "chassi": chassi, "cor": cor, "combustivel": combust, "preco": preco, "km": km, "foto": url_img, "nome_titular": t_nome, "doc_titular": url_doc}])
+                                conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True).astype(str))
+                                barra.empty()
+                                st.success("✅ Salvo com sucesso!")
+                                time.sleep(1); st.rerun()
+                            else: st.error("A Placa é obrigatória.")
 
     # --- ABA: ESTOQUE E EDIÇÃO ---
     elif menu == "📑 Gerenciar Estoque":
-        try:
-            df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-        except:
-            df = pd.DataFrame()
+        try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all').astype(str)
+        except: df = pd.DataFrame()
 
-        if df.empty:
-            st.info("Estoque vazio.")
+        if df.empty: st.info("Estoque vazio.")
         elif "edit_index" in st.session_state:
             idx = st.session_state.edit_index
             carro = df.iloc[idx]
             st.markdown(f"### ✏️ Editando: {carro['placa']}")
             
             with st.form("form_edicao"):
-                lista_anos = [f"{a}/{a+1}" for a in range(2027, 1994, -1)] + [f"{a}/{a}" for a in range(2027, 1994, -1)]
-                lista_anos.sort(reverse=True)
-                
+                lista_anos = sorted([f"{a}/{a+1}" for a in range(2027, 1994, -1)] + [f"{a}/{a}" for a in range(2027, 1994, -1)], reverse=True)
                 c1, c2 = st.columns(2)
-                m_e = c1.text_input("Marca", value=carro['marca'])
-                mo_e = c1.text_input("Modelo", value=carro['modelo'])
-                pl_e = c1.text_input("Placa", value=carro['placa']).upper()
+                m_e = c1.text_input("Marca", value=carro.get('marca', ''))
+                mo_e = c1.text_input("Modelo", value=carro.get('modelo', ''))
+                pl_e = c1.text_input("Placa", value=carro.get('placa', '')).upper()
                 
-                ano_atual = f"{carro['ano_fab']}/{carro['ano_mod']}"
+                ano_atual = f"{carro.get('ano_fab', '')}/{carro.get('ano_mod', '')}"
                 an_e = c2.selectbox("Ano Fab/Mod", options=lista_anos, index=lista_anos.index(ano_atual) if ano_atual in lista_anos else 0)
-                co_e = c2.text_input("Cor", value=carro['cor'])
-                cm_e = c2.text_input("Combustível", value=carro['combustivel'])
+                co_e = c2.text_input("Cor", value=carro.get('cor', ''))
+                cm_e = c2.text_input("Combustível", value=carro.get('combustivel', ''))
                 
                 st.markdown("---")
-                v1, v2 = st.columns(2)
-                pr_e = v1.text_input("Preço", value=carro['preco'])
-                km_e = v2.text_input("KM", value=carro['km'])
+                c3, c4 = st.columns(2)
+                ren_e = c3.text_input("Renavam", value=carro.get('renavam', ''))
+                cha_e = c4.text_input("Chassi", value=carro.get('chassi', '')).upper()
+                pr_e = c3.text_input("Preço", value=carro.get('preco', ''))
+                km_e = c4.text_input("KM", value=carro.get('km', ''))
                 
-                f_e = st.file_uploader("Trocar Foto", type=['jpg','png','jpeg'])
+                st.markdown("---")
+                st.subheader("👤 Dados do Titular")
+                t_n_e = st.text_input("Nome do Titular", value=carro.get('nome_titular', ''))
+                
+                f_v_e = st.file_uploader("Trocar Foto do Veículo", type=['jpg','png','jpeg'])
+                f_d_e = st.file_uploader("Trocar Foto do Documento", type=['jpg','png','jpeg'])
                 
                 b1, b2 = st.columns(2)
                 if b1.form_submit_button("💾 CONCLUIR EDIÇÃO"):
-                    st.info("⏳ Atualizando dados...")
+                    st.info("⏳ Atualizando...")
                     u_f = carro['foto']
-                    if f_e: u_f = cloudinary.uploader.upload(f_e)['secure_url']
+                    if f_v_e: u_f = cloudinary.uploader.upload(f_v_e)['secure_url']
+                    u_d = carro['doc_titular']
+                    if f_d_e: u_d = cloudinary.uploader.upload(f_d_e)['secure_url']
                     
                     af_e, am_e = an_e.split('/')
-                    df.at[idx, 'marca'] = m_e
-                    df.at[idx, 'modelo'] = mo_e
-                    df.at[idx, 'placa'] = pl_e
-                    df.at[idx, 'ano_fab'] = af_e
-                    df.at[idx, 'ano_mod'] = am_e
-                    df.at[idx, 'preco'] = pr_e
-                    df.at[idx, 'km'] = km_e
-                    df.at[idx, 'foto'] = u_f
+                    # Atualização segura convertendo para objeto e depois string
+                    df.at[idx, 'marca'] = str(m_e); df.at[idx, 'modelo'] = str(mo_e)
+                    df.at[idx, 'placa'] = str(pl_e); df.at[idx, 'ano_fab'] = str(af_e)
+                    df.at[idx, 'ano_mod'] = str(am_e); df.at[idx, 'cor'] = str(co_e)
+                    df.at[idx, 'combustivel'] = str(cm_e); df.at[idx, 'renavam'] = str(ren_e)
+                    df.at[idx, 'chassi'] = str(cha_e); df.at[idx, 'preco'] = str(pr_e)
+                    df.at[idx, 'km'] = str(km_e); df.at[idx, 'foto'] = str(u_f)
+                    df.at[idx, 'nome_titular'] = str(t_n_e); df.at[idx, 'doc_titular'] = str(u_d)
                     
-                    conn.update(worksheet="Estoque", data=df)
-                    st.success("✅ Atualizado!")
-                    del st.session_state.edit_index
-                    time.sleep(1)
-                    st.rerun()
-                
+                    conn.update(worksheet="Estoque", data=df.astype(str))
+                    st.success("✅ Atualizado!"); del st.session_state.edit_index
+                    time.sleep(1); st.rerun()
                 if b2.form_submit_button("❌ CANCELAR"):
-                    del st.session_state.edit_index
-                    st.rerun()
+                    del st.session_state.edit_index; st.rerun()
         else:
             for i, r in df.iterrows():
-                st.markdown(f"""
-                    <div class="car-card">
-                        <img src="{r.get('foto', '')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
-                        <h3>{r.get('modelo', '')}</h3>
-                        <p style="color:#1e7e34; font-size:1.4rem; font-weight:900;">R$ {r.get('preco', '0')}</p>
-                        <p><b>Placa:</b> {r.get('placa', '-')} | <b>Ano:</b> {r.get('ano_fab', '')}/{r.get('ano_mod', '')}</p>
-                    </div>
-                """, unsafe_allow_html=True)
-                col_a, col_b = st.columns(2)
-                if col_a.button(f"✏️ Editar", key=f"e_{i}"):
-                    st.session_state.edit_index = i
-                    st.rerun()
-                if col_b.button(f"🗑️ Excluir", key=f"d_{i}"):
-                    conn.update(worksheet="Estoque", data=df.drop(i))
+                st.markdown(f"""<div class="car-card"><img src="{r.get('foto','')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;"><h3>{r.get('modelo','')}</h3><p style="color:#1e7e34; font-size:1.4rem; font-weight:900;">R$ {r.get('preco','0')}</p><p><b>Placa:</b> {r.get('placa','-')} | <b>Titular:</b> {r.get('nome_titular','-')}</p></div>""", unsafe_allow_html=True)
+                c_a, c_b = st.columns(2)
+                if c_a.button(f"✏️ Editar", key=f"e_{i}"):
+                    st.session_state.edit_index = i; st.rerun()
+                if c_b.button(f"🗑️ Excluir", key=f"d_{i}"):
+                    conn.update(worksheet="Estoque", data=df.drop(i).astype(str))
                     st.rerun()
