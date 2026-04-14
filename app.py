@@ -15,7 +15,7 @@ cloudinary.config(
   secure = True
 )
 
-st.set_page_config(page_title="CRM AMG", page_icon="🚗", layout="wide")
+st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="wide")
 
 # --- 2. FUNÇÃO DE CONSULTA API ---
 def consultar_dados_veiculo(placa):
@@ -31,19 +31,19 @@ def consultar_dados_veiculo(placa):
     except:
         return None
 
-# --- 3. ESTILO VISUAL (CORREÇÃO DE CORES E BOTÕES) ---
+# --- 3. ESTILO VISUAL (MOBILE-READY & ALTO CONTRASTE) ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] { background-color: #f0f2f6 !important; color: #000000 !important; }
     h1, h2, h3 { color: #000000 !important; font-weight: 800 !important; }
     [data-testid="stWidgetLabel"] p { font-size: 1.1rem !important; font-weight: 700 !important; color: #000000 !important; }
 
-    /* Inputs com borda visível */
+    /* Inputs e Selects */
     .stTextInput input, .stNumberInput input, .stSelectbox [data-baseweb="select"] {
         border: 2px solid #000000 !important; color: #000000 !important; background-color: #ffffff !important;
     }
 
-    /* TODOS OS BOTÕES COM TEXTO BRANCO E FUNDO VERDE */
+    /* Botões Verdes com Texto Branco */
     button, .stButton>button, div.stFormSubmitButton>button {
         background-color: #1e7e34 !important;
         color: #ffffff !important;
@@ -51,12 +51,12 @@ st.markdown("""
         font-weight: 900 !important;
         text-transform: uppercase !important;
         border-radius: 12px !important;
-        border: none !important;
-        opacity: 1 !important;
         height: 60px !important;
+        width: 100% !important;
+        border: none !important;
     }
 
-    /* Ajuste para o texto dentro do botão de upload */
+    /* Botões de Upload (estilo escuro para destacar) */
     [data-testid="stFileUploader"] section button {
         background-color: #333333 !important;
         color: #ffffff !important;
@@ -96,9 +96,9 @@ else:
         
         if "dados_fipe" not in st.session_state: st.session_state.dados_fipe = {}
 
-        if c_busca2.button("🔍 BUSCAR"):
+        if c_busca2.button("🔍 BUSCAR DADOS"):
             if placa_in:
-                with st.spinner("Buscando..."):
+                with st.spinner("Consultando FIPE..."):
                     res = consultar_dados_veiculo(placa_in)
                     if res:
                         st.session_state.dados_fipe = res.get("data", res)
@@ -107,86 +107,96 @@ else:
 
         with st.form("form_veiculo", clear_on_submit=True):
             f = st.session_state.dados_fipe
-            st.subheader("Informações do Carro")
+            st.subheader("🚗 Dados do Veículo")
             
             marca = st.text_input("Marca", value=f.get("marca", ""))
             modelo = st.text_input("Modelo e Versão", value=f.get("modelo", ""))
-            placa_final = st.text_input("Placa", value=f.get("placa", placa_in))
+            placa_f = st.text_input("Placa", value=f.get("placa", placa_in))
             
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             with c1:
-                ano_fab = st.text_input("Ano Fabricação", value=str(f.get("ano_fabricacao", "")))
+                ano_fab = st.text_input("Ano Fab.", value=str(f.get("ano_fabricacao", "")))
                 renavam = st.text_input("Renavam", value=f.get("renavam", ""))
             with c2:
-                ano_mod = st.text_input("Ano Modelo", value=str(f.get("ano_modelo", "")))
+                ano_mod = st.text_input("Ano Mod.", value=str(f.get("ano_modelo", "")))
                 chassi = st.text_input("Chassi", value=f.get("chassi", ""))
+            with c3:
+                cor = st.text_input("Cor", value=f.get("cor", ""))
+                combustivel = st.text_input("Combustível", value=f.get("combustivel", ""))
 
-            preco_sug = f.get("preco_fipe", 0.0)
-            try: p_val = float(preco_sug)
-            except: p_val = 0.0
-            
-            preco = st.number_input("Preço de Venda (R$)", value=p_val)
+            st.markdown("---")
+            v1, v2 = st.columns(2)
+            with v1:
+                preco_f = f.get("preco_fipe", 0.0)
+                try: p_val = float(preco_f)
+                except: p_val = 0.0
+                preco = st.number_input("Preço de Venda (R$)", value=p_val)
+            with v2:
+                km = st.number_input("Quilometragem", min_value=0)
+
             foto_v = st.file_uploader("📷 Foto Principal do Veículo", type=['jpg','png','jpeg'])
 
             st.markdown("---")
             st.subheader("👤 Proprietário / Titular (Opcional)")
-            nome_t = st.text_input("Nome Titular")
+            t1, t2 = st.columns(2)
+            with t1:
+                nome_t = st.text_input("Nome Completo")
+                cpf_t = st.text_input("CPF")
+            with t2:
+                rg_t = st.text_input("RG")
+                end_t = st.text_input("Endereço")
+            
             doc_t = st.file_uploader("📂 Foto Documento Titular", type=['jpg','png','jpeg'])
 
             if st.form_submit_button("🚀 SALVAR NO ESTOQUE AMG"):
-                if modelo and placa_final and foto_v:
-                    with st.spinner('Gravando...'):
+                if modelo and placa_f and foto_v:
+                    with st.spinner('Salvando...'):
                         img_car = cloudinary.uploader.upload(foto_v)
                         img_doc = ""
                         if doc_t:
                             img_doc = cloudinary.uploader.upload(doc_t)['secure_url']
                         
-                        try:
-                            df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-                        except:
-                            df = pd.DataFrame()
+                        try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
+                        except: df = pd.DataFrame()
 
                         novo = pd.DataFrame([{
-                            "marca": marca, "modelo": modelo, "placa": placa_final.upper(),
+                            "marca": marca, "modelo": modelo, "placa": placa_f.upper(),
                             "ano_fab": str(ano_fab), "ano_mod": str(ano_mod),
                             "renavam": renavam, "chassi": chassi.upper(),
-                            "preco": preco, "foto": img_car['secure_url'], 
-                            "nome_titular": nome_t, "doc_titular": img_doc
+                            "cor": cor, "combustivel": combustivel, "preco": preco, "km": km,
+                            "foto": img_car['secure_url'], "nome_titular": nome_t,
+                            "cpf_titular": cpf_t, "rg_titular": rg_t,
+                            "endereco_titular": end_t, "doc_titular": img_doc
                         }])
                         conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True))
                         st.session_state.dados_fipe = {}
-                        st.success("Salvo!")
+                        st.success("Veículo Cadastrado!")
                         st.rerun()
                 else: st.warning("Modelo, Placa e Foto são obrigatórios.")
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
-        try:
-            df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-        except:
-            st.info("Planilha não encontrada ou vazia.")
-            df = pd.DataFrame()
+        try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
+        except: df = pd.DataFrame()
 
-        if df.empty:
-            st.info("Estoque vazio.")
+        if df.empty: st.info("Estoque vazio.")
         else:
             for i, r in df.iterrows():
-                # TRATAMENTO DE ERRO PARA COLUNAS FALTANTES
-                v_modelo = r.get('modelo', 'Sem Modelo')
-                v_placa = r.get('placa', '---')
-                v_preco = r.get('preco', 0.0)
-                v_foto = r.get('foto', '')
-                
                 st.markdown(f"""
                     <div class="car-card">
-                        <img src="{v_foto}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
-                        <h3>{v_modelo}</h3>
-                        <p class="preco-destaque">R$ {float(v_preco):,.2f}</p>
-                        <p><b>Placa:</b> {v_placa}</p>
+                        <img src="{r.get('foto','')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
+                        <h3>{r.get('modelo','-')}</h3>
+                        <p class="preco-destaque">R$ {float(r.get('preco',0)):,.2f}</p>
+                        <p><b>Placa:</b> {r.get('placa','-')} | <b>Ano:</b> {r.get('ano_fab','')}/{r.get('ano_mod','')}</p>
+                        <p><b>KM:</b> {r.get('km',0)} | <b>Cor:</b> {r.get('cor','')}</p>
+                        {f"<p><b>Titular:</b> {r.get('nome_titular','')}</p>" if r.get('nome_titular','') else ""}
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if st.button(f"🗑️ Excluir {v_placa}", key=f"del_{i}", use_container_width=True):
+                if r.get('doc_titular',''):
+                    st.link_button("📂 Ver Documento", r['doc_titular'], use_container_width=True)
+                
+                if st.button(f"🗑️ Excluir {r.get('placa','')}", key=f"del_{i}", use_container_width=True):
                     conn.update(worksheet="Estoque", data=df.drop(i))
                     st.rerun()
                 st.markdown("---")
