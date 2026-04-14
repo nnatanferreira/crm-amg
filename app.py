@@ -7,7 +7,7 @@ import pandas as pd
 # --- 1. CONFIGURAÇÃO DO CLOUDINARY ---
 # Preencha com seus dados do painel do Cloudinary
 cloudinary.config( 
-  cloud_name = "dybos073qE", 
+  cloud_name = "dybos073q", 
   api_key = "332571224149431", 
   api_secret = "bVdxjWZBAQ4_iGlaJAg0Kze3ZRU",
   secure = True
