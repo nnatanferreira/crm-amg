@@ -159,15 +159,17 @@ else:
                     # Card Estilizado
                     st.markdown(f"""
                         <div class="car-card">
-                            <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: start;">
                                 <div style="flex: 1; min-width: 280px;">
-                                    <img src="{row['foto']}" style="width: 100%; border-radius: 10px; object-fit: cover; max-height: 280px;">
+                                    <img src="{row['foto']}" style="width: 100%; border-radius: 10px; display: block; height: auto;">
                                 </div>
                                 <div style="flex: 1.5; min-width: 250px;">
                                     <h3 style="margin: 0; color: #000;">{row['marca']} {row['modelo']}</h3>
                                     <p class="preco-destaque">{p_f}</p>
                                     <p style="margin: 5px 0;">📅 <b>Ano:</b> {row['ano']}</p>
                                     <p style="margin: 5px 0;">🛣️ <b>KM:</b> {k_f}</p>
+                                    <div style="margin-top: 15px;">
+                                    </div>
                                 </div>
                             </div>
                         </div>
