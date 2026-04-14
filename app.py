@@ -4,7 +4,7 @@ import cloudinary
 import cloudinary.uploader
 import pandas as pd
 
-# --- 1. CONFIGURAÇÃO DO CLOUDINARY (MEMORIZADO) ---
+# --- 1. CONFIGURAÇÃO DO CLOUDINARY ---
 cloudinary.config( 
   cloud_name = "dybos073q", 
   api_key = "332571224149431", 
@@ -20,92 +20,35 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. SUPER LAYOUT (FOCO EM QUADROS E FONTES GRANDES) ---
+# --- 2. ESTILO VISUAL ---
 st.markdown("""
     <style>
-    /* Estilo Geral */
-    html, body, [data-testid="stAppViewContainer"] {
-        background-color: #f8f9fa !important;
-        color: #1a1a1a !important;
-    }
-    
-    /* Fontes de Títulos */
+    html, body, [data-testid="stAppViewContainer"] { background-color: #f8f9fa !important; color: #1a1a1a !important; }
     h1 { font-size: 3.5rem !important; font-weight: 800 !important; }
-    h2 { font-size: 2.8rem !important; margin-bottom: 30px !important; font-weight: 700 !important; }
-    h3 { font-size: 2rem !important; font-weight: 700 !important; color: #000 !important; }
+    h2 { font-size: 2.5rem !important; font-weight: 700 !important; }
     
-    /* MENU LATERAL */
-    [data-testid="stSidebar"] {
-        min-width: 350px !important;
-        background-color: #ffffff !important;
-    }
+    [data-testid="stSidebar"] { min-width: 350px !important; background-color: #ffffff !important; border-right: 1px solid #ddd; }
     
-    /* INPUTS E QUADROS DE CADASTRO (TURBO) */
-    /* Aumenta o tamanho das etiquetas (labels) acima dos campos */
-    [data-testid="stWidgetLabel"] p {
-        font-size: 1.5rem !important;
-        font-weight: 600 !important;
-        color: #000 !important;
-        margin-bottom: 10px !important;
-    }
-
-    /* Aumenta a caixa de texto, número e seleção */
+    [data-testid="stWidgetLabel"] p { font-size: 1.4rem !important; font-weight: 600 !important; }
     .stTextInput input, .stNumberInput input, .stSelectbox [data-baseweb="select"] {
-        font-size: 1.5rem !important;
-        height: 70px !important;
-        border-radius: 12px !important;
-        border: 2px solid #ccc !important;
+        font-size: 1.4rem !important; height: 65px !important; border-radius: 12px !important;
     }
 
-    /* Ajuste específico para o seletor (dropdown) */
-    div[data-baseweb="select"] > div {
-        height: 70px !important;
-        display: flex;
-        align-items: center;
-    }
-
-    /* Aumenta o campo de upload de arquivo */
-    [data-testid="stFileUploader"] {
-        font-size: 1.3rem !important;
-    }
-
-    /* BOTÃO SALVAR (GIGANTE) */
     .stButton button {
-        font-size: 1.8rem !important;
-        font-weight: 800 !important;
-        height: 85px !important;
-        border-radius: 15px !important;
-        background-color: #1e7e34 !important;
-        color: white !important;
-        margin-top: 20px !important;
+        font-size: 1.8rem !important; font-weight: 800 !important; height: 80px !important;
+        border-radius: 15px !important; background-color: #1e7e34 !important; color: white !important;
     }
 
-    /* ESTILO DOS CARDS DE ESTOQUE */
     .car-card { 
-        border: 2px solid #eee; 
-        border-radius: 20px; 
-        padding: 25px; 
-        background-color: #ffffff;
-        box-shadow: 0px 6px 20px rgba(0,0,0,0.1);
-        height: 100%;
+        border: 2px solid #eee; border-radius: 20px; padding: 25px; 
+        background-color: #ffffff; box-shadow: 0px 6px 20px rgba(0,0,0,0.1);
     }
-
-    .preco-destaque { 
-        color: #1e7e34 !important; 
-        font-size: 2.5rem !important; 
-        font-weight: 900 !important;
-    }
-
-    .info-carro { font-size: 1.5rem !important; }
+    .preco-destaque { color: #1e7e34 !important; font-size: 2.3rem !important; font-weight: 900 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. CONEXÃO COM GOOGLE SHEETS ---
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    conexao_ok = True
-except Exception as e:
-    conexao_ok = False
+# --- 3. CONEXÃO ---
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- 4. SISTEMA DE LOGIN ---
 if "autenticado" not in st.session_state:
@@ -119,83 +62,69 @@ if "autenticado" not in st.session_state:
                 if u == "amgmultimarcas" and p == "amg0031":
                     st.session_state["autenticado"] = True
                     st.rerun()
-                else:
-                    st.error("Dados incorretos.")
+                else: st.error("Dados incorretos.")
 else:
-    st.sidebar.markdown("# ⚙️ MENU AMG")
     menu = st.sidebar.radio("Navegar:", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
     st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Sair"):
         st.session_state.clear()
         st.rerun()
 
-    # --- ABA: CADASTRAR (QUADROS AMPLIADOS) ---
+    # --- ABA: CADASTRAR VEÍCULO ---
     if menu == "➕ Cadastrar Veículo":
-        st.markdown("## 📝 Novo Cadastro de Veículo")
-        with st.form("form_cadastro", clear_on_submit=True):
-            c1, c2 = st.columns(2)
+        st.markdown("## 📝 Novo Cadastro Completo")
+        
+        with st.form("form_veiculo", clear_on_submit=True):
+            # LINHA PRINCIPAL
+            c1, c2, c3 = st.columns([1, 1.5, 1])
             with c1:
                 marca = st.selectbox("Marca", ["Nissan", "Ford", "Chevrolet", "VW", "Fiat", "Toyota", "Honda", "Mitsubishi", "Renault", "Hyundai", "Jeep", "BMW", "Mercedes", "Outra"])
-                modelo = st.text_input("Modelo e Versão")
-                ano = st.text_input("Ano (Ex: 2020 ou 2020/2021)")
             with c2:
-                preco = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1000.0)
-                km = st.number_input("Quilometragem Atual", min_value=0)
+                modelo = st.text_input("Modelo e Versão")
+            with c3:
+                placa = st.text_input("Placa (Ex: ABC1D23)")
+
+            # DADOS TÉCNICOS PARA DOCUMENTOS
+            st.markdown("---")
+            st.subheader("🏁 Informações para Documentos (Arras/Procuração/ATPV)")
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            foto_arquivo = st.file_uploader("📷 Selecione a Foto do Carro", type=['jpg', 'jpeg', 'png'])
+            d1, d2, d3 = st.columns(3)
+            with d1:
+                ano_fab = st.text_input("Ano de Fabricação")
+                renavam = st.text_input("Renavam")
+            with d2:
+                ano_mod = st.text_input("Ano do Modelo")
+                chassi = st.text_input("Chassi")
+            with d3:
+                cor = st.text_input("Cor (conforme documento)")
+                combustivel = st.selectbox("Combustível", ["Flex", "Diesel", "Gasolina", "Híbrido", "Elétrico"])
+
+            # VALORES E FOTO
+            st.markdown("---")
+            v1, v2 = st.columns(2)
+            with v1:
+                preco = st.number_input("Preço de Venda (R$)", min_value=0.0, step=500.0)
+                km = st.number_input("Quilometragem", min_value=0)
+            with v2:
+                foto_v = st.file_uploader("📷 Foto Principal do Veículo", type=['jpg', 'jpeg', 'png'])
             
-            # Botão de salvar agora é uma ação de destaque
-            enviar = st.form_submit_button("🚀 SALVAR NO ESTOQUE", use_container_width=True)
-            
-            if enviar:
-                if modelo and foto_arquivo:
-                    with st.spinner('Cadastrando...'):
-                        res = cloudinary.uploader.upload(foto_arquivo)
-                        url_foto = res['secure_url']
-                        df_atual = conn.read(ttl=0).dropna(how='all')
+            if st.form_submit_button("🚀 SALVAR VEÍCULO COMPLETO", use_container_width=True):
+                if modelo and placa and foto_v:
+                    with st.spinner('Gravando veículo...'):
+                        res = cloudinary.uploader.upload(foto_v)
+                        df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
                         
                         novo = pd.DataFrame([{
-                            "marca": marca, "modelo": modelo, "ano": str(ano), 
-                            "preco": preco, "km": km, "foto": url_foto
+                            "marca": marca, "modelo": modelo, "placa": placa.upper(),
+                            "ano_fab": str(ano_fab), "ano_mod": str(ano_mod),
+                            "renavam": renavam, "chassi": chassi.upper(),
+                            "cor": cor, "combustivel": combustivel,
+                            "preco": preco, "km": km, "foto": res['secure_url']
                         }])
                         
-                        df_final = pd.concat([df_atual, novo], ignore_index=True)
-                        conn.update(data=df_final)
-                        st.success(f"Veículo {modelo} salvo com sucesso!")
+                        conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True))
+                        st.success(f"Veículo {modelo} (Placa: {placa.upper()}) cadastrado!")
                 else:
-                    st.warning("Atenção: Modelo e Foto são obrigatórios.")
+                    st.warning("Preencha Modelo, Placa e Foto.")
 
-    # --- ABA: ESTOQUE ---
-    elif menu == "📑 Gerenciar Estoque":
-        try:
-            df = conn.read(ttl=0).dropna(how='all')
-            if df.empty:
-                st.info("O estoque está vazio no momento.")
-            else:
-                st.markdown(f"## 🚘 Estoque Atual ({len(df)} veículos)")
-                cols = st.columns(3)
-                for index, row in df.iterrows():
-                    p_f = f"R$ {row['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                    k_f = f"{int(row['km']):,}".replace(",", ".")
-                    ano_limpo = str(row['ano']).replace(".0", "")
-                    
-                    with cols[index % 3]:
-                        st.markdown(f"""
-                            <div class="car-card">
-                                <img src="{row['foto']}" style="width:100%; border-radius:15px; margin-bottom:15px;">
-                                <h3>{row['marca']} {row['modelo']}</h3>
-                                <p class="preco-destaque">{p_f}</p>
-                                <div class="info-carro">
-                                    <b>📅 Ano:</b> {ano_limpo}<br>
-                                    <b>🛣️ KM:</b> {k_f}
-                                </div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        if st.button(f"🗑️ Excluir", key=f"btn_{index}", use_container_width=True):
-                            df_novo = df.drop(index)
-                            conn.update(data=df_novo)
-                            st.rerun()
-                        st.markdown("<br>", unsafe_allow_html=True)
-        except Exception as e:
-            st.error(f"Erro ao carregar estoque: {e}")
+    # ---
