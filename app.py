@@ -12,10 +12,15 @@ cloudinary.config(
   secure = True
 )
 
-# Configuração da Página
-st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="wide")
+# Configuração da Página - 'expanded' mantém o menu aberto no PC
+st.set_page_config(
+    page_title="CRM AMG Multimarcas", 
+    page_icon="🚗", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- 2. SUPER LAYOUT (TABELA, FONTES GRANDES E MENU AMPLIADO) ---
+# --- 2. SUPER LAYOUT (MENU SEMPRE ABERTO E FONTES GRANDES) ---
 st.markdown("""
     <style>
     /* Forçar tema claro */
@@ -35,10 +40,11 @@ st.markdown("""
         min-width: 350px !important;
         max-width: 350px !important;
         background-color: #ffffff !important;
+        border-right: 1px solid #ddd;
     }
     
     /* Texto das opções do Menu Radio */
-    [data-testid="stSidebar"] .st-emotion-cache-17l243g {
+    [data-testid="stSidebarContent"] .st-emotion-cache-17l243g {
         font-size: 1.5rem !important;
         font-weight: 600 !important;
         padding: 10px 0 !important;
@@ -117,7 +123,7 @@ if "autenticado" not in st.session_state:
                     st.error("Dados incorretos.")
 else:
     # Barra Lateral
-    st.sidebar.markdown("# ⚙️ MENU")
+    st.sidebar.markdown("# ⚙️ MENU AMG")
     menu = st.sidebar.radio("Navegar:", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
     st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Sair"):
