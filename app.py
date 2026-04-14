@@ -1,227 +1,135 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configuração da Página e Identidade Visual (Aba do Navegador)
-st.set_page_config(
-    page_title="CRM Amg Multimarcas",
-    page_icon="🚗",
-    layout="wide", # Essencial para responsividade
-    initial_sidebar_state="collapsed" # Começa com menu fechado no celular
-)
+# 1. Configuração da Página
+st.set_page_config(page_title="CRM Amg Multimarcas", page_icon="🚗", layout="wide")
 
-# 2. Estilização CSS para Dark Mode e Layout Responsivo
-# Usamos Markdown para injetar CSS direto na página.
+# 2. Estilização para Máxima Legibilidade (Tema Claro)
 st.markdown("""
     <style>
-    /* Fundo Totalmente Preto da Aplicação */
+    /* Fundo geral mais limpo */
     .stApp {
-        background-color: #000000;
-        color: #ffffff;
+        background-color: #f8f9fa;
     }
 
-    /* Estilo da Barra Lateral (Menu) - Cinza Escuro */
-    [data-testid="stSidebar"] {
-        background-color: #1a1a1a !important;
-        color: #ffffff;
-    }
-    
-    /* Cor dos textos e ícones na barra lateral */
-    [data-testid="stSidebar"] *, .st-emotion-cache-10trblm {
-        color: #ffffff !important;
+    /* Forçar todos os textos principais para preto para não sumirem */
+    h1, h2, h3, p, span, label {
+        color: #1a1a1a !important;
     }
 
-    /* Títulos Principais em Branco */
-    h1, h2, h3, .stSubheader {
-        color: #ffffff !important;
-        font-weight: 700;
-    }
-
-    /* Inputs de Texto e Botões (Formulários) */
-    .stTextInput>div>div>input, .stSelectbox>div>div>div, .stNumberInput>div>div>input {
-        background-color: #262626;
-        color: #ffffff;
-        border: 1px solid #404040;
-    }
-    
-    /* Botões Principais (Salvar, Enviar) */
-    .stButton>button {
-        background-color: #ffffff;
-        color: #000000;
-        border-radius: 5px;
-        border: none;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        background-color: #cccccc;
-    }
-
-    /* Cards de Veículos no Estoque - Estilo Site */
+    /* Estilo dos Cards de Carros */
     .car-card {
-        background-color: #1a1a1a;
-        border: 1px solid #333333;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 20px;
-        transition: 0.3s;
-    }
-    .car-card:hover {
-        border-color: #555555;
+        background-color: #ffffff;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
     }
 
-    /* Tags de Características (Ano, KM, Câmbio) */
+    /* Tags de detalhes (Ano, KM, etc) */
     .tag {
-        background-color: #333333;
-        color: #eeeeee;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
+        background-color: #e9ecef;
+        color: #495057 !important;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 13px;
         margin-right: 5px;
-        display: inline-block;
-        margin-bottom: 5px;
+        font-weight: 500;
     }
 
-    /* Preço em Destaque (Verde para contraste) */
+    /* Preço em destaque */
     .price-tag {
-        color: #00ff00;
-        font-size: 20px;
+        color: #28a745 !important;
+        font-size: 22px;
         font-weight: bold;
     }
-
-    /* Responsividade para Imagens */
-    img {
-        max-width: 100%;
-        height: auto;
-    }
     
-    /* Responsividade para tabelas */
-    .stDataFrame {
-        width: 100% !important;
+    /* Ajuste da barra lateral */
+    [data-testid="stSidebar"] {
+        background-color: #ffffff;
+        border-right: 1px solid #dee2e6;
     }
-
     </style>
     """, unsafe_allow_html=True)
 
 # --- SISTEMA DE LOGIN ---
 def check_password():
-    """Retorna True se o usuário inseriu a senha correta."""
     def password_guessed():
         if st.session_state["username"] == "amgmultimarcas" and st.session_state["password"] == "amg0031":
             st.session_state["password_correct"] = True
-            del st.session_state["password"]  # Remove a senha da memória
+            del st.session_state["password"]
             del st.session_state["username"]
         else:
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        # Tela de Login Estilizada para Dark Mode
-        st.markdown("<h1 style='text-align: center;'>🔐 Acesso AMG Multimarcas</h1>", unsafe_allow_html=True)
-        col_l1, col_l2, col_l3 = st.columns([1, 2, 1])
-        with col_l2:
+        st.markdown("<h2 style='text-align: center;'>🔐 Acesso AMG Multimarcas</h2>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
             st.text_input("Usuário", key="username")
             st.text_input("Senha", type="password", key="password")
-            st.button("Entrar no CRM", on_click=password_guessed, use_container_width=True)
+            st.button("Entrar", on_click=password_guessed, use_container_width=True)
         return False
-    elif not st.session_state["password_correct"]:
-        st.error("Usuário ou senha incorretos.")
-        # ... (reexibe o form de login)
-        return False
-    return True
+    return st.session_state["password_correct"]
 
-# --- EXECUÇÃO DO SISTEMA PRINCIPAL ---
 if check_password():
-    
-    # Inicialização de dados na memória (se não existirem)
     if 'meu_estoque' not in st.session_state: st.session_state.meu_estoque = []
     if 'leads' not in st.session_state: st.session_state.leads = []
 
-    # 3. Logo AMG no Topo (Centralizado e Responsivo)
-    # Como não temos o arquivo do logo puro, usamos o texto estilizado
-    st.markdown("<h1 style='text-align: center; font-size: 40px; letter-spacing: 2px;'>AMG <span style='font-weight:100; font-size:20px;'>MULTIMARCAS</span></h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #888;'>Gravataí - RS</p>", unsafe_allow_html=True)
+    # --- LOGO NO TOPO ---
+    st.markdown("<h1 style='text-align: center; color: #000; margin-bottom: 0;'>AMG <span style='font-weight: lighter;'>MULTIMARCAS</span></h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #666; margin-top: 0;'>Gravataí - Rio Grande do Sul</p>", unsafe_allow_html=True)
     st.divider()
 
-    # Menu Lateral (Dark Mode)
-    st.sidebar.markdown("<h2 style='color:white; text-align:center;'>Menu</h2>", unsafe_allow_html=True)
+    # Menu Lateral
     aba = st.sidebar.radio("Navegação", ["Estoque / Cadastro", "Leads Site", "Anúncios Meta"])
-    
-    st.sidebar.divider()
-    if st.sidebar.button("Sair (Logout)", use_container_width=True):
+    if st.sidebar.button("Sair"):
         st.session_state["password_correct"] = False
         st.rerun()
 
-    # --- ABA: ESTOQUE (Estilo Dark Site) ---
+    # --- ABA: ESTOQUE ---
     if aba == "Estoque / Cadastro":
         st.subheader("📋 Cadastrar Veículo")
         with st.form("novo_carro", clear_on_submit=True):
-            # Organização em colunas para PC, empilha no celular automaticamente
-            c1, c2, c3 = st.columns([2, 1, 1])
+            c1, c2, c3 = st.columns(3)
             with c1:
-                modelo = st.text_input("Modelo (Ex: Ranger Limited 3.2)")
-                marca = st.selectbox("Marca", ["Ford", "Chevrolet", "Volkswagen", "Fiat", "Hyundai", "Toyota", "Honda", "Renault", "Outros"])
-                ano = st.text_input("Ano (Ex: 2019/2020)")
+                modelo = st.text_input("Modelo do Carro")
+                marca = st.selectbox("Marca", ["Chevrolet", "Volkswagen", "Fiat", "Ford", "Hyundai", "Toyota", "Honda", "Nissan", "Renault", "Outros"])
             with c2:
-                km = st.number_input("KM", min_value=0, step=1000)
-                cambio = st.selectbox("Câmbio", ["Automático", "Manual"])
+                ano = st.text_input("Ano (Ex: 2015/2016)")
+                km = st.number_input("Quilometragem", min_value=0)
             with c3:
-                valor = st.number_input("Preço (R$)", min_value=0, step=1000)
-                cor = st.text_input("Cor")
-                foto = st.file_uploader("Foto Principal", type=['jpg', 'jpeg', 'png'])
+                valor = st.number_input("Preço de Venda (R$)", min_value=0)
+                foto = st.file_uploader("Foto", type=['jpg', 'png', 'jpeg'])
             
-            if st.form_submit_button("Adicionar ao CRM", use_container_width=True):
-                if modelo and valor > 0:
-                    st.session_state.meu_estoque.append({
-                        "Modelo": modelo, "Marca": marca, "Ano": ano, "KM": km,
-                        "Cambio": cambio, "Preço": valor, "Cor": cor, "Foto": foto
-                    })
-                    st.success(f"{modelo} adicionado!")
-                else:
-                    st.error("Preencha Modelo e Preço.")
+            if st.form_submit_button("Salvar no Sistema", use_container_width=True):
+                st.session_state.meu_estoque.append({
+                    "Modelo": modelo, "Marca": marca, "Ano": ano, 
+                    "KM": km, "Preço": valor, "Foto": foto
+                })
+                st.success("Veículo adicionado!")
 
-        # Exibição do Estoque (Cards Responsivos)
-        if st.session_state.meu_estoque:
-            st.divider()
-            st.subheader("🚘 Estoque Atual")
-            
-            for idx, carro in enumerate(st.session_state.meu_estoque):
-                # Cria o card visual usando HTML/CSS dentro do Streamlit
-                st.markdown(f"""
-                <div class="car-card">
-                    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
-                        <div style="flex: 1; min-width: 200px; max-width: 300px;">
-                            </div>
-                        <div style="flex: 2; min-width: 250px;">
-                            <h3 style="margin: 0 0 5px 0;">{carro['Marca']} {carro['Modelo']}</h3>
-                            <p class="price-tag">R$ {carro['Preço']:,.2f}</p>
-                            <div style="margin-top: 10px;">
-                                <span class="tag">📅 {carro['Ano']}</span>
-                                <span class="tag">🛣️ {carro['KM']:,} KM</span>
-                                <span class="tag">⚙️ {carro['Cambio']}</span>
-                                <span class="tag">🎨 {carro['Cor']}</span>
-                            </div>
-                        </div>
-                    </div>
+        # Exibição do Estoque
+        for idx, carro in enumerate(st.session_state.meu_estoque):
+            st.markdown(f"""
+            <div class="car-card">
+                <h3 style="margin-top:0;">{carro['Marca']} {carro['Modelo']}</h3>
+                <p class="price-tag">R$ {carro['Preço']:,.2f}</p>
+                <div>
+                    <span class="tag">📅 {carro['Ano']}</span>
+                    <span class="tag">🛣️ {carro['KM']:,} KM</span>
                 </div>
-                """, unsafe_allow_html=True)
-                
-                # Renderiza a foto de forma responsiva acima do texto do card (limitação do Streamlit)
-                if carro["Foto"]:
-                    st.image(carro["Foto"], width=200)
-                else:
-                    st.info("Sem foto")
-                st.divider()
+            </div>
+            """, unsafe_allow_html=True)
+            if carro["Foto"]:
+                st.image(carro["Foto"], width=300)
+            st.divider()
 
-    # --- ABA: LEADS ---
     elif aba == "Leads Site":
-        st.subheader("👤 Leads Recebidos (Netlify)")
-        if not st.session_state.leads:
-            st.info("Aguardando novas conexões do site...")
-        else:
-            # Exibe os leads em uma tabela responsiva
-            df_leads = pd.DataFrame(st.session_state.leads)
-            st.dataframe(df_leads, use_container_width=True)
+        st.subheader("👤 Leads Recebidos")
+        st.info("Aguardando conexão com o formulário do Netlify...")
 
-    # --- ABA: ANÚNCIOS ---
     elif aba == "Anúncios Meta":
-        st.subheader("🚀 Gerenciador de Tráfego Facilitado")
-        st.write("Selecione o veículo do estoque para configurar a campanha no Facebook Ads.")
-        # (Próximo passo: Integração de API)
+        st.subheader("🚀 Tráfego Pago")
+        st.write("Selecione um veículo para configurar o anúncio.")
