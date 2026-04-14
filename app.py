@@ -22,12 +22,9 @@ def formatar_para_br(valor):
     """Garante o formato 43.900,00 sem adicionar zeros extras"""
     if not valor or str(valor).lower() in ["nan", "none", ""]: return "0,00"
     try:
-        # Remove R$, espaços e pontos de milhar, mantendo apenas números
         texto = str(valor).replace('R$', '').strip()
-        # Pega apenas os números antes de qualquer vírgula/ponto decimal acidental
         apenas_numeros = re.sub(r'[^\d]', '', texto.split(',')[0].split('.')[0])
         v = float(apenas_numeros)
-        # Formata com separador de milhar (.) e decimal (,)
         return f"{v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     except:
         return str(valor)
@@ -85,7 +82,6 @@ else:
                         marca_v = c1.text_input("Marca", value=dados.get('brand'))
                         modelo_v = c1.text_input("Modelo", value=dados.get('model'))
                         placa_v = c1.text_input("Placa").upper()
-                        # Formata o preço vindo da FIPE corretamente
                         preco_fipe = formatar_para_br(dados.get('price'))
                         preco_v = c2.text_input("Preço", value=preco_fipe)
                         km_v = c2.text_input("Quilometragem", value="0")
@@ -143,7 +139,6 @@ else:
                 m_e = c1.text_input("Marca", value=item['marca'])
                 mo_e = c1.text_input("Modelo", value=item['modelo'])
                 pl_e = c1.text_input("Placa", value=item['placa']).upper()
-                # Mantém o preço formatado corretamente na edição
                 pr_e = c2.text_input("Preço", value=formatar_para_br(item['preco']))
                 km_e = c2.text_input("KM", value=limpar_id(item['km']))
                 
@@ -182,9 +177,14 @@ else:
             for i, r in df.iterrows():
                 with st.container():
                     col1, col2 = st.columns([1, 2])
-                    if r.get('foto') and "http" in r['foto']: col1.image(r['foto'], use_container_width=True)
+                    # CORREÇÃO AQUI: Verifica se é string e se não está vazio antes do "in"
+                    f_url = str(r.get('foto', ''))
+                    if f_url and "http" in f_url: 
+                        col1.image(f_url, use_container_width=True)
+                    else:
+                        col1.info("Sem foto")
+
                     col2.subheader(f"{r['marca']} {r['modelo']}")
-                    # Exibição bonita no estoque
                     col2.markdown(f"### R$ {formatar_para_br(r['preco'])}")
                     col2.write(f"Placa: {r['placa']} | KM: {limpar_id(r['km'])}")
                     if col2.button(f"✏️ Editar", key=f"e{i}"):
