@@ -12,7 +12,7 @@ cloudinary.config(
   secure = True
 )
 
-# Configuração da Página - 'expanded' mantém o menu aberto no PC
+# Configuração da Página
 st.set_page_config(
     page_title="CRM AMG Multimarcas", 
     page_icon="🚗", 
@@ -23,19 +23,15 @@ st.set_page_config(
 # --- 2. SUPER LAYOUT (MENU SEMPRE ABERTO E FONTES GRANDES) ---
 st.markdown("""
     <style>
-    /* Forçar tema claro */
     html, body, [data-testid="stAppViewContainer"] {
         background-color: #f8f9fa !important;
         color: #1a1a1a !important;
     }
-    
-    /* Fontes do corpo e títulos */
     html { font-size: 20px !important; }
     h1 { font-size: 3.5rem !important; font-weight: 800 !important; }
     h2 { font-size: 2.5rem !important; margin-bottom: 25px !important; }
     h3 { font-size: 2rem !important; font-weight: 700 !important; color: #000 !important; }
     
-    /* MENU LATERAL AMPLIADO */
     [data-testid="stSidebar"] {
         min-width: 350px !important;
         max-width: 350px !important;
@@ -43,14 +39,12 @@ st.markdown("""
         border-right: 1px solid #ddd;
     }
     
-    /* Texto das opções do Menu Radio */
     [data-testid="stSidebarContent"] .st-emotion-cache-17l243g {
         font-size: 1.5rem !important;
         font-weight: 600 !important;
         padding: 10px 0 !important;
     }
     
-    /* Estilo dos textos dos detalhes do carro */
     .info-carro { 
         font-size: 1.5rem !important; 
         line-height: 1.6 !important;
@@ -64,7 +58,6 @@ st.markdown("""
         margin: 15px 0px !important;
     }
 
-    /* Estilo do Card em Grade */
     .car-card { 
         border: 2px solid #eee; 
         border-radius: 20px; 
@@ -84,7 +77,6 @@ st.markdown("""
         margin-bottom: 15px;
     }
 
-    /* Botões Gerais */
     .stButton button {
         font-size: 1.3rem !important;
         font-weight: bold !important;
@@ -92,7 +84,6 @@ st.markdown("""
         border-radius: 12px !important;
     }
     
-    /* Inputs Maiores */
     .stTextInput input, .stNumberInput input, .stSelectbox select {
         font-size: 1.3rem !important;
         height: 55px !important;
@@ -122,7 +113,6 @@ if "autenticado" not in st.session_state:
                 else:
                     st.error("Dados incorretos.")
 else:
-    # Barra Lateral
     st.sidebar.markdown("# ⚙️ MENU AMG")
     menu = st.sidebar.radio("Navegar:", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
     st.sidebar.markdown("---")
@@ -138,7 +128,8 @@ else:
             with c1:
                 marca = st.selectbox("Marca", ["Nissan", "Ford", "Chevrolet", "VW", "Fiat", "Toyota", "Honda", "Mitsubishi", "Renault", "Hyundai", "Jeep", "BMW", "Mercedes", "Outra"])
                 modelo = st.text_input("Modelo e Versão")
-                ano = st.text_input("Ano")
+                # Mudamos para text_input para o ano aceitar formatos como 2013/2014 sem virar número
+                ano = st.text_input("Ano (Ex: 2015 ou 2015/2016)")
             with c2:
                 preco = st.number_input("Preço (R$)", min_value=0.0, step=1000.0)
                 km = st.number_input("Quilometragem", min_value=0)
@@ -151,7 +142,17 @@ else:
                         res = cloudinary.uploader.upload(foto_arquivo)
                         url_foto = res['secure_url']
                         df_atual = conn.read(ttl=0).dropna(how='all')
-                        novo = pd.DataFrame([{"marca": marca, "modelo": modelo, "ano": ano, "preco": preco, "km": km, "foto": url_foto}])
+                        
+                        # Salvamos o ano explicitamente como string (texto)
+                        novo = pd.DataFrame([{
+                            "marca": marca, 
+                            "modelo": modelo, 
+                            "ano": str(ano), 
+                            "preco": preco, 
+                            "km": km, 
+                            "foto": url_foto
+                        }])
+                        
                         df_final = pd.concat([df_atual, novo], ignore_index=True)
                         conn.update(data=df_final)
                         st.success(f"{modelo} cadastrado com sucesso!")
@@ -173,6 +174,9 @@ else:
                     p_f = f"R$ {row['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                     k_f = f"{int(row['km']):,}".replace(",", ".")
                     
+                    # Tratamento para limpar o ano de qualquer .0 ou decimais
+                    ano_limpo = str(row['ano']).replace(".0", "")
+                    
                     with cols[index % 3]:
                         st.markdown(f"""
                             <div class="car-card">
@@ -182,7 +186,7 @@ else:
                                 <h3>{row['marca']} {row['modelo']}</h3>
                                 <p class="preco-destaque">{p_f}</p>
                                 <div class="info-carro">
-                                    <b>📅 Ano:</b> {row['ano']}<br>
+                                    <b>📅 Ano:</b> {ano_limpo}<br>
                                     <b>🛣️ KM:</b> {k_f}
                                 </div>
                             </div>
