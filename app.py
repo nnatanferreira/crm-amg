@@ -5,28 +5,40 @@ from PIL import Image
 # 1. Configuração de Página
 st.set_page_config(page_title="CRM Amg Multimarcas", page_icon="🚗", layout="wide")
 
-# 2. Estilização Reforçada para Mobile e Desktop (Fundo Branco Forçado)
+# 2. CSS "Blindado" contra Modo Escuro de Celulares
 st.markdown("""
     <style>
-    /* Força o fundo branco e texto preto em todo o app para evitar bugs em mobile */
-    .stApp {
+    /* Força Fundo Branco e Texto Preto em TODO o app e menus */
+    html, body, [data-testid="stAppViewContainer"], .main, .stApp {
         background-color: #ffffff !important;
-        color: #1a1a1a !important;
+        color: #000000 !important;
     }
 
-    /* Ajuste de contraste para textos e labels */
-    .stMarkdown, p, span, label, .stSubheader, h1, h2, h3 {
-        color: #1a1a1a !important;
+    /* Blindagem do Menu Lateral (Sidebar) */
+    [data-testid="stSidebar"], [data-testid="stSidebar"] div, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
+    
+    /* Garante que o ícone do menu (hambúrguer) seja visível no mobile */
+    [data-testid="stHeader"] {
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        color: #000000 !important;
+    }
+
+    /* Forçar cores de Títulos e Textos */
+    h1, h2, h3, h4, p, span, label {
+        color: #000000 !important;
     }
 
     /* Estilo dos Cards de Veículos */
     .car-card {
         background-color: #ffffff !important;
-        border: 1px solid #e0e6ed !important;
+        border: 1px solid #dddddd !important;
         border-radius: 12px;
         padding: 15px;
         margin-bottom: 20px;
-        box-shadow: 0px 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0px 2px 10px rgba(0,0,0,0.05);
     }
     
     .price-tag {
@@ -37,47 +49,38 @@ st.markdown("""
     }
 
     .spec-tag {
-        background-color: #f1f3f5 !important;
-        color: #495057 !important;
+        background-color: #f0f2f6 !important;
+        color: #31333f !important;
         padding: 4px 10px;
         border-radius: 6px;
         font-size: 12px;
         font-weight: 600;
         margin-right: 5px;
         display: inline-block;
-        margin-bottom: 5px;
-        border: 1px solid #ddd;
+        border: 1px solid #cccccc;
     }
 
-    /* Otimização para Mobile: Empilhar colunas */
+    /* Estilização dos campos de input para não sumirem no mobile */
+    .stTextInput input, .stNumberInput input, .stSelectbox div {
+        background-color: #f9f9f9 !important;
+        color: #000000 !important;
+        border: 1px solid #cccccc !important;
+    }
+
+    /* Otimização para Mobile (Empilhamento) */
     @media (max-width: 640px) {
         [data-testid="column"] {
             width: 100% !important;
             flex: 1 1 100% !important;
+            min-width: 100% !important;
         }
-        .main-title {
-            font-size: 28px !important;
-        }
-    }
-
-    .main-title {
-        text-align: center;
-        font-weight: 900;
-        letter-spacing: -1px;
-        color: #000000 !important;
-    }
-
-    /* Inputs e Selects com fundo cinza claro para destacar do branco */
-    input, select, textarea {
-        background-color: #f8f9fa !important;
-        color: #000000 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 # --- LÓGICA DE ACESSO ---
 if "autenticado" not in st.session_state:
-    st.markdown("<h2 style='text-align: center; margin-top: 50px;'>🔐 CRM AMG MULTIMARCAS</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-top: 30px; color: black;'>🔐 CRM AMG MULTIMARCAS</h2>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
         with st.form("login"):
@@ -93,51 +96,47 @@ else:
     if 'estoque_dados' not in st.session_state:
         st.session_state.estoque_dados = []
 
-    st.markdown("<h1 class='main-title'>AMG <span style='font-weight:100;'>MULTIMARCAS</span></h1>", unsafe_allow_html=True)
+    # LOGO
+    st.markdown("<h1 style='text-align: center; color: black; font-weight: 900;'>AMG MULTIMARCAS</h1>", unsafe_allow_html=True)
     
-    menu = st.sidebar.radio("PAINEL", ["➕ Cadastrar", "📑 Estoque", "📊 Leads"])
+    # Menu Lateral
+    menu = st.sidebar.radio("MENU PRINCIPAL", ["➕ Cadastrar", "📑 Estoque", "📊 Leads"])
 
-    # --- ABA: CADASTRO ---
     if menu == "➕ Cadastrar":
-        st.subheader("📝 Novo Veículo")
+        st.subheader("📝 Novo Cadastro")
         with st.form("cadastro", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            with c1:
-                marca = st.selectbox("Marca", ["Ford", "Chevrolet", "Volkswagen", "Fiat", "Toyota", "Hyundai", "Honda", "Nissan", "Mitsubishi", "Outra"])
-                modelo = st.text_input("Modelo e Versão")
-                ano = st.text_input("Ano/Modelo")
-            with c2:
-                preco = st.number_input("Preço", min_value=0, step=500)
-                km = st.number_input("KM", min_value=0, step=1000)
-                cambio = st.selectbox("Câmbio", ["Automático", "Manual"])
-            
+            marca = st.selectbox("Marca", ["Ford", "Chevrolet", "Volkswagen", "Fiat", "Toyota", "Hyundai", "Honda", "Nissan", "Mitsubishi", "Outra"])
+            modelo = st.text_input("Modelo e Versão")
+            ano = st.text_input("Ano/Modelo")
+            preco = st.number_input("Preço", min_value=0, step=500)
+            km = st.number_input("KM", min_value=0, step=1000)
+            cambio = st.selectbox("Câmbio", ["Automático", "Manual"])
             foto_input = st.file_uploader("📷 Foto Principal", type=['jpg', 'png', 'jpeg'])
             
-            if st.form_submit_button("🚀 PUBLICAR", use_container_width=True):
+            if st.form_submit_button("🚀 PUBLICAR NO SISTEMA", use_container_width=True):
                 if modelo and foto_input:
                     img = Image.open(foto_input)
                     st.session_state.estoque_dados.append({
                         "marca": marca, "modelo": modelo, "ano": ano, 
                         "preco": preco, "km": km, "cambio": cambio, "foto": img
                     })
-                    st.success(f"{modelo} cadastrado!")
+                    st.success(f"{modelo} publicado!")
 
-    # --- ABA: ESTOQUE ---
     elif menu == "📑 Estoque":
         st.subheader(f"🚘 Pátio ({len(st.session_state.estoque_dados)} veículos)")
         
         for idx, carro in enumerate(st.session_state.estoque_dados):
-            # Formatação Padrão Brasil
             km_f = f"{carro['km']:,.0f}".replace(",", ".")
             pr_f = f"R$ {carro['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
             with st.container():
                 st.markdown('<div class="car-card">', unsafe_allow_html=True)
-                col_img, col_info = st.columns([1, 1.5])
-                with col_img:
+                # No mobile, essas colunas vão se empilhar automaticamente
+                c_img, c_info = st.columns([1, 1.5])
+                with c_img:
                     st.image(carro["foto"], use_container_width=True)
-                with col_info:
-                    st.markdown(f"### {carro['marca']} {carro['modelo']}")
+                with c_info:
+                    st.markdown(f"<h3 style='margin-bottom:0;'>{carro['marca']} {carro['modelo']}</h3>", unsafe_allow_html=True)
                     st.markdown(f"<p class='price-tag'>{pr_f}</p>", unsafe_allow_html=True)
                     st.markdown(f"""
                         <span class="spec-tag">📅 {carro['ano']}</span>
@@ -148,6 +147,8 @@ else:
                         st.session_state.estoque_dados.pop(idx)
                         st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
-                st.write("") # Espaço entre cards
 
-    st.sidebar.button("Sair", on_click=lambda: st.session_state.clear())
+    st.sidebar.divider()
+    if st.sidebar.button("Sair"):
+        st.session_state.clear()
+        st.rerun()
