@@ -21,18 +21,21 @@ st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="w
 def formatar_moeda(valor):
     """Transforma 43900 em 43.900,00"""
     try:
-        # Remove caracteres não numéricos exceto ponto e vírgula
-        apenas_numeros = re.sub(r'[^\d,.]', '', str(valor))
-        v = float(apenas_numeros.replace('.', '').replace(',', '.'))
+        if not valor or valor == "nan": return "0,00"
+        # Remove R$, pontos e espaços para limpar
+        limpo = re.sub(r'[^\d,]', '', str(valor).replace('.', ''))
+        v = float(limpo.replace(',', '.'))
         return f"{v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     except:
-        return valor
+        return str(valor)
 
 def limpar_numero(valor):
-    """Remove o .0 de strings numéricas"""
-    s = str(valor)
+    """Remove o .0 e garante que seja string limpa"""
+    s = str(valor).strip()
     if s.endswith('.0'):
         return s[:-2]
+    if s == "nan" or s == "None":
+        return ""
     return s
 
 # --- 3. FUNÇÕES DA API FIPE ---
@@ -132,37 +135,27 @@ else:
                         c3, c4 = st.columns(2)
                         renavam = c3.text_input("Renavam")
                         chassi = c4.text_input("Chassi").upper()
-                        
-                        # Preço já vem formatado da função
-                        preco_fipe = formatar_moeda(dados_f.get('price', '0'))
-                        preco = c3.text_input("Valor de Venda (Ex: 43.900,00)", value=preco_fipe)
+                        preco = c3.text_input("Valor de Venda", value=formatar_moeda(dados_f.get('price', '0')))
                         km = c4.text_input("Quilometragem", value="0")
 
                         foto_v = st.file_uploader("📷 Foto do Veículo (Opcional)", type=['jpg','png','jpeg'])
-                        st.markdown("---")
                         t_nome = st.text_input("Nome do Titular")
                         t_doc = st.file_uploader("📂 Foto Documento Titular", type=['jpg','png','jpeg'])
 
                         if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
                             if placa:
                                 barra = st.info("⏳ Gravando veículo...")
-                                # Limpeza final de Renavam e Chassi para tirar pontos extras de input
-                                renavam_save = limpar_numero(renavam)
-                                chassi_save = chassi.strip()
-                                preco_save = formatar_moeda(preco)
-                                km_save = limpar_numero(km)
-
                                 url_img = cloudinary.uploader.upload(foto_v)['secure_url'] if foto_v else ""
                                 url_doc = cloudinary.uploader.upload(t_doc)['secure_url'] if t_doc else ""
                                 af, am = ano_combo.split('/')
                                 
-                                try: 
+                                try:
+                                    # Lê e limpa
                                     df = conn.read(worksheet="Estoque", ttl=0).astype(str)
-                                    df = df.applymap(limpar_numero) # Garante que nada na planilha tenha .0
-                                except: 
-                                    df = pd.DataFrame()
+                                except:
+                                    df = pd.DataFrame(columns=["marca", "modelo", "placa", "ano_fab", "ano_mod", "renavam", "chassi", "cor", "combustivel", "preco", "km", "foto", "nome_titular", "doc_titular"])
 
-                                novo = pd.DataFrame([{"marca": marca_val, "modelo": modelo_val, "placa": placa, "ano_fab": af, "ano_mod": am, "renavam": renavam_save, "chassi": chassi_save, "cor": cor, "combustivel": combust, "preco": preco_save, "km": km_save, "foto": url_img, "nome_titular": t_nome, "doc_titular": url_doc}])
+                                novo = pd.DataFrame([{"marca": marca_val, "modelo": modelo_val, "placa": placa, "ano_fab": af, "ano_mod": am, "renavam": limpar_numero(renavam), "chassi": chassi.strip(), "cor": cor, "combustivel": combust, "preco": formatar_moeda(preco), "km": limpar_numero(km), "foto": url_img, "nome_titular": t_nome, "doc_titular": url_doc}])
                                 
                                 conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True).astype(str))
                                 barra.empty()
@@ -174,10 +167,13 @@ else:
     elif menu == "📑 Gerenciar Estoque":
         try: 
             df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all').astype(str)
-            df = df.applymap(limpar_numero)
+            # Limpa todos os .0 que existirem na planilha
+            for col in df.columns:
+                df[col] = df[col].apply(limpar_numero)
         except: df = pd.DataFrame()
 
-        if df.empty: st.info("Estoque vazio.")
+        if df.empty:
+            st.info("O estoque está vazio no momento.")
         elif "edit_index" in st.session_state:
             idx = st.session_state.edit_index
             carro = df.iloc[idx]
@@ -186,30 +182,29 @@ else:
             with st.form("form_edicao"):
                 lista_anos = sorted([f"{a}/{a+1}" for a in range(2027, 1994, -1)] + [f"{a}/{a}" for a in range(2027, 1994, -1)], reverse=True)
                 c1, c2 = st.columns(2)
-                m_e = c1.text_input("Marca", value=carro.get('marca', ''))
-                mo_e = c1.text_input("Modelo", value=carro.get('modelo', ''))
-                pl_e = c1.text_input("Placa", value=carro.get('placa', '')).upper()
+                m_e = c1.text_input("Marca", value=carro['marca'])
+                mo_e = c1.text_input("Modelo", value=carro['modelo'])
+                pl_e = c1.text_input("Placa", value=carro['placa']).upper()
                 
-                ano_atual = f"{carro.get('ano_fab', '')}/{carro.get('ano_mod', '')}"
+                ano_atual = f"{carro['ano_fab']}/{carro['ano_mod']}"
                 an_e = c2.selectbox("Ano Fab/Mod", options=lista_anos, index=lista_anos.index(ano_atual) if ano_atual in lista_anos else 0)
-                co_e = c2.text_input("Cor", value=carro.get('cor', ''))
-                cm_e = c2.text_input("Combustível", value=carro.get('combustivel', ''))
+                co_e = c2.text_input("Cor", value=carro['cor'])
+                cm_e = c2.text_input("Combustível", value=carro['combustivel'])
                 
                 st.markdown("---")
                 c3, c4 = st.columns(2)
-                ren_e = c3.text_input("Renavam", value=limpar_numero(carro.get('renavam', '')))
-                cha_e = c4.text_input("Chassi", value=carro.get('chassi', '')).upper()
-                pr_e = c3.text_input("Preço", value=formatar_moeda(carro.get('preco', '0')))
-                km_e = c4.text_input("KM", value=limpar_numero(carro.get('km', '0')))
+                ren_e = c3.text_input("Renavam", value=carro['renavam'])
+                cha_e = c4.text_input("Chassi", value=carro['chassi']).upper()
+                pr_e = c3.text_input("Preço", value=formatar_moeda(carro['preco']))
+                km_e = c4.text_input("KM", value=carro['km'])
                 
                 st.markdown("---")
-                t_n_e = st.text_input("Nome do Titular", value=carro.get('nome_titular', ''))
+                t_n_e = st.text_input("Nome do Titular", value=carro['nome_titular'])
                 f_v_e = st.file_uploader("Trocar Foto do Veículo", type=['jpg','png','jpeg'])
                 f_d_e = st.file_uploader("Trocar Foto do Documento", type=['jpg','png','jpeg'])
                 
                 b1, b2 = st.columns(2)
                 if b1.form_submit_button("💾 CONCLUIR EDIÇÃO"):
-                    st.info("⏳ Atualizando...")
                     u_f = carro['foto']
                     if f_v_e: u_f = cloudinary.uploader.upload(f_v_e)['secure_url']
                     u_d = carro['doc_titular']
@@ -231,14 +226,12 @@ else:
                     del st.session_state.edit_index; st.rerun()
         else:
             for i, r in df.iterrows():
-                preco_card = formatar_moeda(r.get('preco','0'))
                 st.markdown(f"""
                     <div class="car-card">
                         <img src="{r.get('foto','')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
                         <h3>{r.get('modelo','')}</h3>
-                        <p style="color:#1e7e34; font-size:1.4rem; font-weight:900;">R$ {preco_card}</p>
-                        <p><b>Placa:</b> {r.get('placa','-')} | <b>Renavam:</b> {limpar_numero(r.get('renavam','-'))}</p>
-                        <p><b>KM:</b> {limpar_numero(r.get('km','0'))}</p>
+                        <p style="color:#1e7e34; font-size:1.4rem; font-weight:900;">R$ {formatar_moeda(r.get('preco','0'))}</p>
+                        <p><b>Placa:</b> {r.get('placa','-')} | <b>Renavam:</b> {r.get('renavam','-')}</p>
                     </div>
                 """, unsafe_allow_html=True)
                 c_a, c_b = st.columns(2)
