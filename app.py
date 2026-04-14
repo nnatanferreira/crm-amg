@@ -5,6 +5,7 @@ import cloudinary.uploader
 import pandas as pd
 import requests
 import time
+import re
 
 # --- 1. CONFIGURAÇÕES CLOUDINARY ---
 cloudinary.config( 
@@ -16,7 +17,25 @@ cloudinary.config(
 
 st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="wide")
 
-# --- 2. FUNÇÕES DA API FIPE ---
+# --- 2. FUNÇÕES AUXILIARES ---
+def formatar_moeda(valor):
+    """Transforma 43900 em 43.900,00"""
+    try:
+        # Remove caracteres não numéricos exceto ponto e vírgula
+        apenas_numeros = re.sub(r'[^\d,.]', '', str(valor))
+        v = float(apenas_numeros.replace('.', '').replace(',', '.'))
+        return f"{v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+    except:
+        return valor
+
+def limpar_numero(valor):
+    """Remove o .0 de strings numéricas"""
+    s = str(valor)
+    if s.endswith('.0'):
+        return s[:-2]
+    return s
+
+# --- 3. FUNÇÕES DA API FIPE ---
 BASE_URL = "https://fipe.parallelum.com.br/api/v2/cars"
 
 @st.cache_data(ttl=3600)
@@ -36,7 +55,7 @@ def get_dados_finais(brand_id, model_id, year_id):
     try: return requests.get(f"{BASE_URL}/brands/{brand_id}/models/{model_id}/years/{year_id}").json()
     except: return {}
 
-# --- 3. ESTILO VISUAL ---
+# --- 4. ESTILO VISUAL ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] { background-color: #f0f2f6 !important; color: #000000 !important; }
@@ -54,7 +73,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. CONEXÃO E LOGIN ---
+# --- 5. CONEXÃO E LOGIN ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 if "autenticado" not in st.session_state:
@@ -94,8 +113,8 @@ else:
                     dados_f = get_dados_finais(dict_marcas[marca_n], dict_modelos[modelo_n], dict_anos[ano_fipe_sel])
                     with st.form("form_veiculo"):
                         st.subheader("🚗 Detalhes do Veículo")
-                        lista_anos = [f"{a}/{a+1}" for a in range(2027, 1994, -1)] + [f"{a}/{a}" for a in range(2027, 1994, -1)]
-                        lista_anos.sort(reverse=True)
+                        lista_anos = sorted([f"{a}/{a+1}" for a in range(2027, 1994, -1)] + [f"{a}/{a}" for a in range(2027, 1994, -1)], reverse=True)
+                        
                         try:
                             ano_ref = int(dados_f.get('modelYear', 2024))
                             sugestao_ano = f"{ano_ref-1}/{ano_ref}"
@@ -113,8 +132,11 @@ else:
                         c3, c4 = st.columns(2)
                         renavam = c3.text_input("Renavam")
                         chassi = c4.text_input("Chassi").upper()
-                        preco = v1 = st.text_input("Valor de Venda (R$)", value=dados_f.get('price', '0'))
-                        km = st.text_input("Quilometragem", value="0")
+                        
+                        # Preço já vem formatado da função
+                        preco_fipe = formatar_moeda(dados_f.get('price', '0'))
+                        preco = c3.text_input("Valor de Venda (Ex: 43.900,00)", value=preco_fipe)
+                        km = c4.text_input("Quilometragem", value="0")
 
                         foto_v = st.file_uploader("📷 Foto do Veículo (Opcional)", type=['jpg','png','jpeg'])
                         st.markdown("---")
@@ -124,12 +146,24 @@ else:
                         if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
                             if placa:
                                 barra = st.info("⏳ Gravando veículo...")
+                                # Limpeza final de Renavam e Chassi para tirar pontos extras de input
+                                renavam_save = limpar_numero(renavam)
+                                chassi_save = chassi.strip()
+                                preco_save = formatar_moeda(preco)
+                                km_save = limpar_numero(km)
+
                                 url_img = cloudinary.uploader.upload(foto_v)['secure_url'] if foto_v else ""
                                 url_doc = cloudinary.uploader.upload(t_doc)['secure_url'] if t_doc else ""
                                 af, am = ano_combo.split('/')
-                                try: df = conn.read(worksheet="Estoque", ttl=0).astype(str)
-                                except: df = pd.DataFrame()
-                                novo = pd.DataFrame([{"marca": marca_val, "modelo": modelo_val, "placa": placa, "ano_fab": af, "ano_mod": am, "renavam": renavam, "chassi": chassi, "cor": cor, "combustivel": combust, "preco": preco, "km": km, "foto": url_img, "nome_titular": t_nome, "doc_titular": url_doc}])
+                                
+                                try: 
+                                    df = conn.read(worksheet="Estoque", ttl=0).astype(str)
+                                    df = df.applymap(limpar_numero) # Garante que nada na planilha tenha .0
+                                except: 
+                                    df = pd.DataFrame()
+
+                                novo = pd.DataFrame([{"marca": marca_val, "modelo": modelo_val, "placa": placa, "ano_fab": af, "ano_mod": am, "renavam": renavam_save, "chassi": chassi_save, "cor": cor, "combustivel": combust, "preco": preco_save, "km": km_save, "foto": url_img, "nome_titular": t_nome, "doc_titular": url_doc}])
+                                
                                 conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True).astype(str))
                                 barra.empty()
                                 st.success("✅ Salvo com sucesso!")
@@ -138,7 +172,9 @@ else:
 
     # --- ABA: ESTOQUE E EDIÇÃO ---
     elif menu == "📑 Gerenciar Estoque":
-        try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all').astype(str)
+        try: 
+            df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all').astype(str)
+            df = df.applymap(limpar_numero)
         except: df = pd.DataFrame()
 
         if df.empty: st.info("Estoque vazio.")
@@ -161,15 +197,13 @@ else:
                 
                 st.markdown("---")
                 c3, c4 = st.columns(2)
-                ren_e = c3.text_input("Renavam", value=carro.get('renavam', ''))
+                ren_e = c3.text_input("Renavam", value=limpar_numero(carro.get('renavam', '')))
                 cha_e = c4.text_input("Chassi", value=carro.get('chassi', '')).upper()
-                pr_e = c3.text_input("Preço", value=carro.get('preco', ''))
-                km_e = c4.text_input("KM", value=carro.get('km', ''))
+                pr_e = c3.text_input("Preço", value=formatar_moeda(carro.get('preco', '0')))
+                km_e = c4.text_input("KM", value=limpar_numero(carro.get('km', '0')))
                 
                 st.markdown("---")
-                st.subheader("👤 Dados do Titular")
                 t_n_e = st.text_input("Nome do Titular", value=carro.get('nome_titular', ''))
-                
                 f_v_e = st.file_uploader("Trocar Foto do Veículo", type=['jpg','png','jpeg'])
                 f_d_e = st.file_uploader("Trocar Foto do Documento", type=['jpg','png','jpeg'])
                 
@@ -182,13 +216,12 @@ else:
                     if f_d_e: u_d = cloudinary.uploader.upload(f_d_e)['secure_url']
                     
                     af_e, am_e = an_e.split('/')
-                    # Atualização segura convertendo para objeto e depois string
                     df.at[idx, 'marca'] = str(m_e); df.at[idx, 'modelo'] = str(mo_e)
                     df.at[idx, 'placa'] = str(pl_e); df.at[idx, 'ano_fab'] = str(af_e)
                     df.at[idx, 'ano_mod'] = str(am_e); df.at[idx, 'cor'] = str(co_e)
-                    df.at[idx, 'combustivel'] = str(cm_e); df.at[idx, 'renavam'] = str(ren_e)
-                    df.at[idx, 'chassi'] = str(cha_e); df.at[idx, 'preco'] = str(pr_e)
-                    df.at[idx, 'km'] = str(km_e); df.at[idx, 'foto'] = str(u_f)
+                    df.at[idx, 'combustivel'] = str(cm_e); df.at[idx, 'renavam'] = limpar_numero(ren_e)
+                    df.at[idx, 'chassi'] = str(cha_e).strip(); df.at[idx, 'preco'] = formatar_moeda(pr_e)
+                    df.at[idx, 'km'] = limpar_numero(km_e); df.at[idx, 'foto'] = str(u_f)
                     df.at[idx, 'nome_titular'] = str(t_n_e); df.at[idx, 'doc_titular'] = str(u_d)
                     
                     conn.update(worksheet="Estoque", data=df.astype(str))
@@ -198,7 +231,16 @@ else:
                     del st.session_state.edit_index; st.rerun()
         else:
             for i, r in df.iterrows():
-                st.markdown(f"""<div class="car-card"><img src="{r.get('foto','')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;"><h3>{r.get('modelo','')}</h3><p style="color:#1e7e34; font-size:1.4rem; font-weight:900;">R$ {r.get('preco','0')}</p><p><b>Placa:</b> {r.get('placa','-')} | <b>Titular:</b> {r.get('nome_titular','-')}</p></div>""", unsafe_allow_html=True)
+                preco_card = formatar_moeda(r.get('preco','0'))
+                st.markdown(f"""
+                    <div class="car-card">
+                        <img src="{r.get('foto','')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
+                        <h3>{r.get('modelo','')}</h3>
+                        <p style="color:#1e7e34; font-size:1.4rem; font-weight:900;">R$ {preco_card}</p>
+                        <p><b>Placa:</b> {r.get('placa','-')} | <b>Renavam:</b> {limpar_numero(r.get('renavam','-'))}</p>
+                        <p><b>KM:</b> {limpar_numero(r.get('km','0'))}</p>
+                    </div>
+                """, unsafe_allow_html=True)
                 c_a, c_b = st.columns(2)
                 if c_a.button(f"✏️ Editar", key=f"e_{i}"):
                     st.session_state.edit_index = i; st.rerun()
