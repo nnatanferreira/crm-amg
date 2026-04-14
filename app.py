@@ -20,13 +20,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. ESTILO VISUAL (FOCO EM LEITURA E QUADROS) ---
+# --- 2. ESTILO VISUAL ---
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] { background-color: #f8f9fa !important; color: #1a1a1a !important; }
     h1 { font-size: 3.5rem !important; font-weight: 800 !important; }
     h2 { font-size: 2.2rem !important; font-weight: 700 !important; color: #1e7e34 !important; }
-    h3 { font-size: 1.8rem !important; font-weight: 600 !important; margin-top: 20px !important; }
     
     [data-testid="stSidebar"] { min-width: 350px !important; background-color: #ffffff !important; border-right: 1px solid #ddd; }
     
@@ -72,23 +71,24 @@ else:
 
     # --- ABA: CADASTRAR VEÍCULO ---
     if menu == "➕ Cadastrar Veículo":
-        st.markdown("## 📝 Cadastro Completo (Veículo + Titular)")
+        st.markdown("## 📝 Cadastro de Veículo e Titularidade")
         
         with st.form("form_veiculo", clear_on_submit=True):
             
-            # SEÇÃO 1: DADOS DO PROPRIETÁRIO ATUAL (OUTORGANTE)
-            st.subheader("👤 Dados do Titular (Proprietário no CRV)")
+            # SEÇÃO 1: DADOS E DOCUMENTO DO TITULAR
+            st.subheader("👤 Proprietário (Conforme CRV)")
             t1, t2 = st.columns(2)
             with t1:
                 nome_titular = st.text_input("Nome Completo do Titular")
                 cpf_titular = st.text_input("CPF do Titular")
-            with t2:
                 rg_titular = st.text_input("RG do Titular")
-                endereco_titular = st.text_input("Endereço Completo do Titular")
+            with t2:
+                endereco_titular = st.text_input("Endereço Completo")
+                doc_titular_file = st.file_uploader("📂 Foto do Documento do Titular (RG/CNH)", type=['jpg', 'jpeg', 'png'])
             
             st.markdown("---")
             
-            # SEÇÃO 2: DADOS DO VEÍCULO
+            # SEÇÃO 2: DADOS TÉCNICOS DO VEÍCULO
             st.subheader("🚗 Dados do Veículo")
             c1, c2, c3 = st.columns([1, 1.5, 1])
             with c1:
@@ -117,12 +117,20 @@ else:
                 preco = st.number_input("Preço de Venda (R$)", min_value=0.0, step=500.0)
                 km = st.number_input("Quilometragem", min_value=0)
             with v2:
-                foto_v = st.file_uploader("📷 Foto Principal", type=['jpg', 'jpeg', 'png'])
+                foto_v_file = st.file_uploader("📷 Foto Principal do Carro", type=['jpg', 'jpeg', 'png'])
             
             if st.form_submit_button("🚀 SALVAR CADASTRO NO ESTOQUE", use_container_width=True):
-                if modelo and placa and nome_titular and foto_v:
-                    with st.spinner('Gravando dados...'):
-                        res = cloudinary.uploader.upload(foto_v)
+                if modelo and placa and nome_titular and foto_v_file:
+                    with st.spinner('Fazendo upload e salvando...'):
+                        # Upload da foto do carro
+                        res_carro = cloudinary.uploader.upload(foto_v_file)
+                        
+                        # Upload do documento do titular (se houver)
+                        url_doc_titular = ""
+                        if doc_titular_file:
+                            res_doc = cloudinary.uploader.upload(doc_titular_file)
+                            url_doc_titular = res_doc['secure_url']
+
                         df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
                         
                         novo = pd.DataFrame([{
@@ -130,17 +138,18 @@ else:
                             "cpf_titular": cpf_titular,
                             "rg_titular": rg_titular,
                             "endereco_titular": endereco_titular,
+                            "doc_titular": url_doc_titular,
                             "marca": marca, "modelo": modelo, "placa": placa.upper(),
                             "ano_fab": str(ano_fab), "ano_mod": str(ano_mod),
                             "renavam": renavam, "chassi": chassi.upper(),
                             "cor": cor, "combustivel": combustivel,
-                            "preco": preco, "km": km, "foto": res['secure_url']
+                            "preco": preco, "km": km, "foto": res_carro['secure_url']
                         }])
                         
                         conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True))
-                        st.success(f"Veículo {modelo} de {nome_titular} cadastrado com sucesso!")
+                        st.success(f"Veículo {modelo} cadastrado com documento do titular!")
                 else:
-                    st.warning("Atenção: Nome do Titular, Modelo, Placa e Foto são obrigatórios.")
+                    st.warning("Preencha Modelo, Placa, Nome do Titular e Foto do Carro.")
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
@@ -148,7 +157,7 @@ else:
         if df.empty:
             st.info("Estoque vazio.")
         else:
-            st.markdown(f"## 🚘 Veículos em Estoque ({len(df)})")
+            st.markdown(f"## 🚘 Estoque Atual ({len(df)})")
             cols = st.columns(3)
             for i, r in df.iterrows():
                 with cols[i % 3]:
@@ -164,6 +173,11 @@ else:
                             </p>
                         </div>
                     """, unsafe_allow_html=True)
+                    
+                    # Botão para ver documento do dono
+                    if r['doc_titular']:
+                        st.link_button("📂 Ver Documento Titular", r['doc_titular'], use_container_width=True)
+                    
                     if st.button(f"🗑️ Excluir", key=f"del_{i}", use_container_width=True):
                         conn.update(worksheet="Estoque", data=df.drop(i))
                         st.rerun()
