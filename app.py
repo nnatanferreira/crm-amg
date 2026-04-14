@@ -19,18 +19,21 @@ st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="w
 
 # --- 2. FUNÇÕES DE APOIO ---
 def formatar_para_br(valor):
-    """Transforma qualquer entrada no formato 43.900,00"""
+    """Garante o formato 43.900,00 sem adicionar zeros extras"""
     if not valor or str(valor).lower() in ["nan", "none", ""]: return "0,00"
     try:
-        # Remove tudo que não é número para limpar bugs de pontos extras
-        limpo = re.sub(r'[^\d]', '', str(valor).split(',')[0])
-        v = float(limpo)
+        # Remove R$, espaços e pontos de milhar, mantendo apenas números
+        texto = str(valor).replace('R$', '').strip()
+        # Pega apenas os números antes de qualquer vírgula/ponto decimal acidental
+        apenas_numeros = re.sub(r'[^\d]', '', texto.split(',')[0].split('.')[0])
+        v = float(apenas_numeros)
+        # Formata com separador de milhar (.) e decimal (,)
         return f"{v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     except:
         return str(valor)
 
 def limpar_id(valor):
-    """Remove .0 de campos de texto como Renavam e KM"""
+    """Remove .0 de campos como Renavam e KM"""
     s = str(valor).strip()
     return s.split('.')[0] if '.' in s else s
 
@@ -58,9 +61,11 @@ else:
     if menu == "➕ Cadastrar Veículo":
         st.markdown("## 📝 Novo Cadastro")
         
-        marcas = requests.get("https://fipe.parallelum.com.br/api/v2/cars/brands").json()
-        dict_marcas = {m['name']: m['code'] for m in marcas}
-        marca_n = st.selectbox("1. Marca", options=[""] + sorted(list(dict_marcas.keys())))
+        try:
+            marcas = requests.get("https://fipe.parallelum.com.br/api/v2/cars/brands").json()
+            dict_marcas = {m['name']: m['code'] for m in marcas}
+            marca_n = st.selectbox("1. Marca", options=[""] + sorted(list(dict_marcas.keys())))
+        except: marca_n = None
 
         if marca_n:
             modelos = requests.get(f"https://fipe.parallelum.com.br/api/v2/cars/brands/{dict_marcas[marca_n]}/models").json()
@@ -80,7 +85,9 @@ else:
                         marca_v = c1.text_input("Marca", value=dados.get('brand'))
                         modelo_v = c1.text_input("Modelo", value=dados.get('model'))
                         placa_v = c1.text_input("Placa").upper()
-                        preco_v = c2.text_input("Preço (43.900,00)", value=formatar_para_br(dados.get('price')))
+                        # Formata o preço vindo da FIPE corretamente
+                        preco_fipe = formatar_para_br(dados.get('price'))
+                        preco_v = c2.text_input("Preço", value=preco_fipe)
                         km_v = c2.text_input("Quilometragem", value="0")
                         
                         st.markdown("---")
@@ -97,7 +104,7 @@ else:
                         if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
                             if not placa_v: st.error("Placa obrigatória!"); st.stop()
                             
-                            aviso = st.info("⏳ Salvando dados, por favor aguarde...")
+                            aviso = st.info("⏳ Salvando dados...")
                             url_img = cloudinary.uploader.upload(foto_v)['secure_url'] if foto_v else ""
                             url_doc = cloudinary.uploader.upload(doc_v)['secure_url'] if doc_v else ""
                             
@@ -127,7 +134,6 @@ else:
         if df.empty:
             st.info("Estoque vazio.")
         elif "edit_idx" in st.session_state:
-            # EDIÇÃO COMPLETA (ESPELHO DO CADASTRO)
             idx = st.session_state.edit_idx
             item = df.iloc[idx]
             st.markdown(f"### ✏️ Editando: {item['placa']}")
@@ -137,6 +143,7 @@ else:
                 m_e = c1.text_input("Marca", value=item['marca'])
                 mo_e = c1.text_input("Modelo", value=item['modelo'])
                 pl_e = c1.text_input("Placa", value=item['placa']).upper()
+                # Mantém o preço formatado corretamente na edição
                 pr_e = c2.text_input("Preço", value=formatar_para_br(item['preco']))
                 km_e = c2.text_input("KM", value=limpar_id(item['km']))
                 
@@ -172,12 +179,12 @@ else:
                 if col_btn2.form_submit_button("❌ CANCELAR"):
                     del st.session_state.edit_idx; st.rerun()
         else:
-            # LISTAGEM
             for i, r in df.iterrows():
                 with st.container():
                     col1, col2 = st.columns([1, 2])
                     if r.get('foto') and "http" in r['foto']: col1.image(r['foto'], use_container_width=True)
                     col2.subheader(f"{r['marca']} {r['modelo']}")
+                    # Exibição bonita no estoque
                     col2.markdown(f"### R$ {formatar_para_br(r['preco'])}")
                     col2.write(f"Placa: {r['placa']} | KM: {limpar_id(r['km'])}")
                     if col2.button(f"✏️ Editar", key=f"e{i}"):
