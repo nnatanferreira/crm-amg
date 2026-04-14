@@ -87,13 +87,13 @@ else:
             if modelo_n:
                 anos_fipe = get_anos(dict_marcas[marca_n], dict_modelos[modelo_n])
                 dict_anos = {a['name']: a['code'] for a in anos_fipe}
-                ano_fipe_sel = st.selectbox("3. Ano Modelo (FIPE)", options=[""] + list(dict_anos.keys()))
+                ano_fipe_sel = st.selectbox("3. Ano Modelo", options=[""] + list(dict_anos.keys()))
 
                 if ano_fipe_sel:
                     dados_f = get_dados_finais(dict_marcas[marca_n], dict_modelos[modelo_n], dict_anos[ano_fipe_sel])
                     
                     with st.form("form_veiculo"):
-                        st.subheader("🚗 Informações do Carro")
+                        st.subheader("🚗 Detalhes do Veículo")
                         
                         lista_anos = []
                         for a in range(2027, 1994, -1):
@@ -108,7 +108,7 @@ else:
                         c1, c2 = st.columns(2)
                         marca_val = c1.text_input("Marca", value=dados_f.get('brand', marca_n))
                         modelo_val = c1.text_input("Modelo", value=dados_f.get('model', modelo_n))
-                        placa = c1.text_input("Placa", placeholder="ABC1D23").upper()
+                        placa = c1.text_input("Placa").upper()
                         
                         ano_combo = c2.selectbox("Ano Fab/Mod", options=lista_anos, 
                                                index=lista_anos.index(sugestao_ano) if sugestao_ano in lista_anos else 0)
@@ -117,39 +117,37 @@ else:
 
                         st.markdown("---")
                         c3, c4 = st.columns(2)
+                        # Removemos caracteres especiais para a contagem, mas salvamos o que o usuário digitar
                         renavam = c3.text_input("Renavam")
                         chassi = c4.text_input("Chassi").upper()
                         
-                        # Validação visual (sem apagar dados)
-                        errors = []
-                        if renavam and len(renavam) not in [9, 11]:
-                            errors.append(f"⚠️ Renavam com {len(renavam)} dígitos (Use 9 ou 11)")
-                        if chassi and len(chassi) != 17:
-                            errors.append(f"⚠️ Chassi com {len(chassi)} caracteres (Use 17)")
-                        for e in errors: st.warning(e)
+                        renavam_clean = "".join(filter(str.isdigit, renavam)) if renavam else ""
+                        chassi_clean = chassi.replace(" ", "").replace("-", "") if chassi else ""
 
                         v1, v2 = st.columns(2)
                         p_fipe = dados_f.get('price', '0').replace('R$ ', '').replace('.', '').replace(',', '.')
-                        preco = v1.text_input("Preço de Venda", value=p_fipe)
+                        preco = v1.text_input("Valor de Venda (R$)", value=p_fipe)
                         km = v2.text_input("KM Atual", value="0")
 
-                        foto_v = st.file_uploader("📷 Foto do Veículo", type=['jpg','png','jpeg'])
+                        foto_v = st.file_uploader("📷 Foto do Veículo (Opcional)", type=['jpg','png','jpeg'])
                         
                         st.markdown("---")
                         t_nome = st.text_input("Nome do Titular")
                         t_doc = st.file_uploader("📂 Foto Documento", type=['jpg','png','jpeg'])
 
                         if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
-                            if not errors and placa and foto_v:
-                                with st.spinner("Salvando..."):
+                            # Validação flexível: se preencher, tem que ter a qtd correta. Se não preencher, passa.
+                            erro_renavam = renavam and len(renavam_clean) not in [9, 11]
+                            erro_chassi = chassi and len(chassi_clean) != 17
+                            
+                            if not erro_renavam and not erro_chassi and placa:
+                                with st.spinner("Gravando dados..."):
                                     af, am = ano_combo.split('/')
-                                    url_img = cloudinary.uploader.upload(foto_v)['secure_url']
+                                    url_img = cloudinary.uploader.upload(foto_v)['secure_url'] if foto_v else ""
                                     url_doc = cloudinary.uploader.upload(t_doc)['secure_url'] if t_doc else ""
                                     
-                                    # Lógica segura para ler planilha
                                     try:
-                                        df = conn.read(worksheet="Estoque", ttl=0)
-                                        df = df.dropna(how='all')
+                                        df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
                                     except:
                                         df = pd.DataFrame(columns=["marca", "modelo", "placa", "ano_fab", "ano_mod", "renavam", "chassi", "cor", "combustivel", "preco", "km", "foto", "nome_titular", "doc_titular"])
 
@@ -163,10 +161,12 @@ else:
                                     
                                     df_final = pd.concat([df, novo], ignore_index=True)
                                     conn.update(worksheet="Estoque", data=df_final)
-                                    st.success("Veículo salvo com sucesso!")
+                                    st.success("Veículo cadastrado!")
                                     st.rerun()
                             else:
-                                st.error("Verifique a Placa, Foto e erros de Renavam/Chassi.")
+                                if not placa: st.error("A Placa é obrigatória.")
+                                if erro_renavam: st.error(f"Renavam inválido ({len(renavam_clean)} dígitos). Use 9 ou 11.")
+                                if erro_chassi: st.error(f"Chassi inválido ({len(chassi_clean)} caracteres). Use 17.")
 
     elif menu == "📑 Gerenciar Estoque":
         try:
@@ -175,10 +175,9 @@ else:
             df = pd.DataFrame()
 
         if df.empty or "placa" not in df.columns:
-            st.info("Estoque vazio ou planilha sem cabeçalho 'placa'.")
+            st.info("Estoque vazio.")
         else:
             for i, r in df.iterrows():
-                # Uso do .get() evita o erro KeyError se a coluna sumir
                 st.markdown(f"""
                     <div class="car-card">
                         <img src="{r.get('foto', '')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
