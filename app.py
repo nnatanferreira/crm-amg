@@ -20,44 +20,67 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 2. SUPER LAYOUT (MENU SEMPRE ABERTO E FONTES GRANDES) ---
+# --- 2. SUPER LAYOUT (FOCO EM QUADROS E FONTES GRANDES) ---
 st.markdown("""
     <style>
+    /* Estilo Geral */
     html, body, [data-testid="stAppViewContainer"] {
         background-color: #f8f9fa !important;
         color: #1a1a1a !important;
     }
-    html { font-size: 20px !important; }
+    
+    /* Fontes de Títulos */
     h1 { font-size: 3.5rem !important; font-weight: 800 !important; }
-    h2 { font-size: 2.5rem !important; margin-bottom: 25px !important; }
+    h2 { font-size: 2.8rem !important; margin-bottom: 30px !important; font-weight: 700 !important; }
     h3 { font-size: 2rem !important; font-weight: 700 !important; color: #000 !important; }
     
+    /* MENU LATERAL */
     [data-testid="stSidebar"] {
         min-width: 350px !important;
-        max-width: 350px !important;
         background-color: #ffffff !important;
-        border-right: 1px solid #ddd;
     }
     
-    [data-testid="stSidebarContent"] .st-emotion-cache-17l243g {
+    /* INPUTS E QUADROS DE CADASTRO (TURBO) */
+    /* Aumenta o tamanho das etiquetas (labels) acima dos campos */
+    [data-testid="stWidgetLabel"] p {
         font-size: 1.5rem !important;
         font-weight: 600 !important;
-        padding: 10px 0 !important;
-    }
-    
-    .info-carro { 
-        font-size: 1.5rem !important; 
-        line-height: 1.6 !important;
-        color: #333 !important;
+        color: #000 !important;
+        margin-bottom: 10px !important;
     }
 
-    .preco-destaque { 
-        color: #1e7e34 !important; 
-        font-size: 2.5rem !important; 
-        font-weight: 900 !important;
-        margin: 15px 0px !important;
+    /* Aumenta a caixa de texto, número e seleção */
+    .stTextInput input, .stNumberInput input, .stSelectbox [data-baseweb="select"] {
+        font-size: 1.5rem !important;
+        height: 70px !important;
+        border-radius: 12px !important;
+        border: 2px solid #ccc !important;
     }
 
+    /* Ajuste específico para o seletor (dropdown) */
+    div[data-baseweb="select"] > div {
+        height: 70px !important;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Aumenta o campo de upload de arquivo */
+    [data-testid="stFileUploader"] {
+        font-size: 1.3rem !important;
+    }
+
+    /* BOTÃO SALVAR (GIGANTE) */
+    .stButton button {
+        font-size: 1.8rem !important;
+        font-weight: 800 !important;
+        height: 85px !important;
+        border-radius: 15px !important;
+        background-color: #1e7e34 !important;
+        color: white !important;
+        margin-top: 20px !important;
+    }
+
+    /* ESTILO DOS CARDS DE ESTOQUE */
     .car-card { 
         border: 2px solid #eee; 
         border-radius: 20px; 
@@ -65,29 +88,15 @@ st.markdown("""
         background-color: #ffffff;
         box-shadow: 0px 6px 20px rgba(0,0,0,0.1);
         height: 100%;
-        display: flex;
-        flex-direction: column;
     }
 
-    .img-container img {
-        width: 100%;
-        border-radius: 15px;
-        height: auto;
-        display: block;
-        margin-bottom: 15px;
+    .preco-destaque { 
+        color: #1e7e34 !important; 
+        font-size: 2.5rem !important; 
+        font-weight: 900 !important;
     }
 
-    .stButton button {
-        font-size: 1.3rem !important;
-        font-weight: bold !important;
-        height: 60px !important;
-        border-radius: 12px !important;
-    }
-    
-    .stTextInput input, .stNumberInput input, .stSelectbox select {
-        font-size: 1.3rem !important;
-        height: 55px !important;
-    }
+    .info-carro { font-size: 1.5rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -120,69 +129,61 @@ else:
         st.session_state.clear()
         st.rerun()
 
-    # --- ABA: CADASTRAR ---
+    # --- ABA: CADASTRAR (QUADROS AMPLIADOS) ---
     if menu == "➕ Cadastrar Veículo":
-        st.markdown("## 📝 Novo Cadastro")
+        st.markdown("## 📝 Novo Cadastro de Veículo")
         with st.form("form_cadastro", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
                 marca = st.selectbox("Marca", ["Nissan", "Ford", "Chevrolet", "VW", "Fiat", "Toyota", "Honda", "Mitsubishi", "Renault", "Hyundai", "Jeep", "BMW", "Mercedes", "Outra"])
                 modelo = st.text_input("Modelo e Versão")
-                # Mudamos para text_input para o ano aceitar formatos como 2013/2014 sem virar número
-                ano = st.text_input("Ano (Ex: 2015 ou 2015/2016)")
+                ano = st.text_input("Ano (Ex: 2020 ou 2020/2021)")
             with c2:
-                preco = st.number_input("Preço (R$)", min_value=0.0, step=1000.0)
-                km = st.number_input("Quilometragem", min_value=0)
+                preco = st.number_input("Preço de Venda (R$)", min_value=0.0, step=1000.0)
+                km = st.number_input("Quilometragem Atual", min_value=0)
             
-            foto_arquivo = st.file_uploader("📷 Foto do Veículo", type=['jpg', 'jpeg', 'png'])
+            st.markdown("<br>", unsafe_allow_html=True)
+            foto_arquivo = st.file_uploader("📷 Selecione a Foto do Carro", type=['jpg', 'jpeg', 'png'])
             
-            if st.form_submit_button("🚀 SALVAR NO ESTOQUE", use_container_width=True):
+            # Botão de salvar agora é uma ação de destaque
+            enviar = st.form_submit_button("🚀 SALVAR NO ESTOQUE", use_container_width=True)
+            
+            if enviar:
                 if modelo and foto_arquivo:
-                    with st.spinner('Salvando...'):
+                    with st.spinner('Cadastrando...'):
                         res = cloudinary.uploader.upload(foto_arquivo)
                         url_foto = res['secure_url']
                         df_atual = conn.read(ttl=0).dropna(how='all')
                         
-                        # Salvamos o ano explicitamente como string (texto)
                         novo = pd.DataFrame([{
-                            "marca": marca, 
-                            "modelo": modelo, 
-                            "ano": str(ano), 
-                            "preco": preco, 
-                            "km": km, 
-                            "foto": url_foto
+                            "marca": marca, "modelo": modelo, "ano": str(ano), 
+                            "preco": preco, "km": km, "foto": url_foto
                         }])
                         
                         df_final = pd.concat([df_atual, novo], ignore_index=True)
                         conn.update(data=df_final)
-                        st.success(f"{modelo} cadastrado com sucesso!")
+                        st.success(f"Veículo {modelo} salvo com sucesso!")
                 else:
-                    st.warning("Preencha modelo e foto.")
+                    st.warning("Atenção: Modelo e Foto são obrigatórios.")
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
         try:
             df = conn.read(ttl=0).dropna(how='all')
             if df.empty:
-                st.info("Estoque vazio.")
+                st.info("O estoque está vazio no momento.")
             else:
                 st.markdown(f"## 🚘 Estoque Atual ({len(df)} veículos)")
-                
                 cols = st.columns(3)
-                
                 for index, row in df.iterrows():
                     p_f = f"R$ {row['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                     k_f = f"{int(row['km']):,}".replace(",", ".")
-                    
-                    # Tratamento para limpar o ano de qualquer .0 ou decimais
                     ano_limpo = str(row['ano']).replace(".0", "")
                     
                     with cols[index % 3]:
                         st.markdown(f"""
                             <div class="car-card">
-                                <div class="img-container">
-                                    <img src="{row['foto']}">
-                                </div>
+                                <img src="{row['foto']}" style="width:100%; border-radius:15px; margin-bottom:15px;">
                                 <h3>{row['marca']} {row['modelo']}</h3>
                                 <p class="preco-destaque">{p_f}</p>
                                 <div class="info-carro">
@@ -191,11 +192,10 @@ else:
                                 </div>
                             </div>
                         """, unsafe_allow_html=True)
-                        
                         if st.button(f"🗑️ Excluir", key=f"btn_{index}", use_container_width=True):
                             df_novo = df.drop(index)
                             conn.update(data=df_novo)
                             st.rerun()
                         st.markdown("<br>", unsafe_allow_html=True)
         except Exception as e:
-            st.error(f"Erro: {e}")
+            st.error(f"Erro ao carregar estoque: {e}")
