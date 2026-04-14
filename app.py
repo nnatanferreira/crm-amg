@@ -43,10 +43,6 @@ st.markdown("""
     .stTextInput input, .stSelectbox [data-baseweb="select"] {
         border: 2px solid #000000 !important; color: #000000 !important; background-color: #ffffff !important;
     }
-    /* Remove setas de campos numéricos caso ainda apareçam */
-    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button {
-        -webkit-appearance: none; margin: 0;
-    }
     button, .stButton>button, div.stFormSubmitButton>button {
         background-color: #1e7e34 !important; color: #ffffff !important;
         font-size: 1.2rem !important; font-weight: 900 !important;
@@ -76,15 +72,9 @@ else:
         st.session_state.clear()
         st.rerun()
 
-    # --- ABA: CADASTRAR ---
     if menu == "➕ Cadastrar Veículo":
         st.markdown("## 📝 Novo Cadastro")
         
-        # Inicializa o estado dos campos para não apagar ao dar erro
-        if 'form_data' not in st.session_state:
-            st.session_state.form_data = {}
-
-        # 1. Fluxo FIPE
         marcas = get_marcas()
         dict_marcas = {m['name']: m['code'] for m in marcas}
         marca_n = st.selectbox("1. Marca", options=[""] + sorted(list(dict_marcas.keys())))
@@ -102,11 +92,9 @@ else:
                 if ano_fipe_sel:
                     dados_f = get_dados_finais(dict_marcas[marca_n], dict_modelos[modelo_n], dict_anos[ano_fipe_sel])
                     
-                    # Formulário Principal
                     with st.form("form_veiculo"):
                         st.subheader("🚗 Informações do Carro")
                         
-                        # Lista de Anos Combinados
                         lista_anos = []
                         for a in range(2027, 1994, -1):
                             lista_anos.append(f"{a}/{a+1}")
@@ -129,24 +117,20 @@ else:
 
                         st.markdown("---")
                         c3, c4 = st.columns(2)
+                        renavam = c3.text_input("Renavam")
+                        chassi = c4.text_input("Chassi").upper()
                         
-                        # Renavam e Chassi sem botões verdes, apenas validação de texto
-                        renavam = c3.text_input("Renavam (9 ou 11 dígitos)")
-                        chassi = c4.text_input("Chassi (17 dígitos)").upper()
-                        
-                        # Verificação de Erros
+                        # Validação visual (sem apagar dados)
                         errors = []
                         if renavam and len(renavam) not in [9, 11]:
-                            errors.append(f"⚠️ Renavam inválido: {len(renavam)} dígitos.")
+                            errors.append(f"⚠️ Renavam com {len(renavam)} dígitos (Use 9 ou 11)")
                         if chassi and len(chassi) != 17:
-                            errors.append(f"⚠️ Chassi inválido: {len(chassi)} caracteres.")
-                        
+                            errors.append(f"⚠️ Chassi com {len(chassi)} caracteres (Use 17)")
                         for e in errors: st.warning(e)
 
-                        # Preço e KM como texto para remover os botões + e -
                         v1, v2 = st.columns(2)
                         p_fipe = dados_f.get('price', '0').replace('R$ ', '').replace('.', '').replace(',', '.')
-                        preco = v1.text_input("Preço de Venda (Somente números)", value=p_fipe)
+                        preco = v1.text_input("Preço de Venda", value=p_fipe)
                         km = v2.text_input("KM Atual", value="0")
 
                         foto_v = st.file_uploader("📷 Foto do Veículo", type=['jpg','png','jpeg'])
@@ -156,14 +140,18 @@ else:
                         t_doc = st.file_uploader("📂 Foto Documento", type=['jpg','png','jpeg'])
 
                         if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
-                            if not errors and placa and foto_v and preco:
+                            if not errors and placa and foto_v:
                                 with st.spinner("Salvando..."):
                                     af, am = ano_combo.split('/')
                                     url_img = cloudinary.uploader.upload(foto_v)['secure_url']
                                     url_doc = cloudinary.uploader.upload(t_doc)['secure_url'] if t_doc else ""
                                     
-                                    try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-                                    except: df = pd.DataFrame()
+                                    # Lógica segura para ler planilha
+                                    try:
+                                        df = conn.read(worksheet="Estoque", ttl=0)
+                                        df = df.dropna(how='all')
+                                    except:
+                                        df = pd.DataFrame(columns=["marca", "modelo", "placa", "ano_fab", "ano_mod", "renavam", "chassi", "cor", "combustivel", "preco", "km", "foto", "nome_titular", "doc_titular"])
 
                                     novo = pd.DataFrame([{
                                         "marca": marca_val, "modelo": modelo_val, "placa": placa,
@@ -173,20 +161,24 @@ else:
                                         "nome_titular": t_nome, "doc_titular": url_doc
                                     }])
                                     
-                                    conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True))
-                                    st.success("Veículo salvo!")
+                                    df_final = pd.concat([df, novo], ignore_index=True)
+                                    conn.update(worksheet="Estoque", data=df_final)
+                                    st.success("Veículo salvo com sucesso!")
                                     st.rerun()
                             else:
-                                st.error("Verifique os campos obrigatórios e erros de Renavam/Chassi.")
+                                st.error("Verifique a Placa, Foto e erros de Renavam/Chassi.")
 
-    # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
-        try: df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-        except: df = pd.DataFrame()
+        try:
+            df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
+        except:
+            df = pd.DataFrame()
 
-        if df.empty: st.info("Estoque vazio.")
+        if df.empty or "placa" not in df.columns:
+            st.info("Estoque vazio ou planilha sem cabeçalho 'placa'.")
         else:
             for i, r in df.iterrows():
+                # Uso do .get() evita o erro KeyError se a coluna sumir
                 st.markdown(f"""
                     <div class="car-card">
                         <img src="{r.get('foto', '')}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
