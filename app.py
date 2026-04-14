@@ -21,9 +21,7 @@ st.set_page_config(page_title="CRM AMG", page_icon="🚗", layout="wide")
 def consultar_dados_veiculo(placa):
     try:
         placa_limpa = placa.replace("-", "").strip().upper()
-        # Verificação simples para não consultar placas inválidas
         if len(placa_limpa) != 7: return None
-        
         url = f"https://api.fipe.online/v1/veiculos/{placa_limpa}"
         headers = {"Authorization": f"Bearer {API_FIPE_KEY}", "Content-Type": "application/json"}
         response = requests.get(url, headers=headers, timeout=12)
@@ -33,139 +31,107 @@ def consultar_dados_veiculo(placa):
     except:
         return None
 
-# --- 3. ESTILO VISUAL CORRIGIDO (Visibilidade de Uploads) ---
+# --- 3. ESTILO VISUAL (FOCO EM LEITURA E BOTÕES BRANCOS) ---
 st.markdown("""
     <style>
-    /* 1. Cores Gerais e Fundo */
+    /* Cores de Fundo e Texto Geral */
     html, body, [data-testid="stAppViewContainer"] { 
         background-color: #f0f2f6 !important; 
         color: #000000 !important; 
     }
     
-    /* 2. Sidebar e Rádios */
-    [data-testid="stSidebar"] { 
-        background-color: #ffffff !important; 
-        border-right: 1px solid #ddd; 
-    }
-    [data-testid="stSidebar"] * { 
-        color: #000000 !important; 
-        font-weight: 600 !important; 
-    }
+    /* Títulos */
+    h1, h2, h3 { color: #000000 !important; font-weight: 800 !important; }
 
-    /* 3. Títulos */
-    h1 { color: #000000 !important; font-weight: 800 !important; }
-    h2 { color: #1e7e34 !important; font-weight: 700 !important; }
-    h3 { color: #000000 !important; font-weight: 600 !important; }
-
-    /* 4. Labels dos Campos (Nomes acima dos inputs) */
+    /* Labels dos Campos */
     [data-testid="stWidgetLabel"] p { 
         font-size: 1.1rem !important; 
         font-weight: 700 !important; 
         color: #000000 !important; 
     }
 
-    /* 5. Campos de Entrada (Inputs normais) */
+    /* Inputs (Borda Preta para visibilidade) */
     .stTextInput input, .stNumberInput input, .stSelectbox [data-baseweb="select"] {
-        font-size: 1.1rem !important; 
-        height: 50px !important; 
         border: 2px solid #000000 !important; 
-        background-color: #ffffff !important; 
         color: #000000 !important;
+        background-color: #ffffff !important;
     }
 
-    /* 6. CORREÇÃO ESPECÍFICA: Botões de Upload (File Uploader) */
+    /* BOTÃO SALVAR (SUBMIT) - TEXTO BRANCO FORÇADO */
+    div.stFormSubmitButton > button {
+        background-color: #1e7e34 !important;
+        color: #ffffff !important;
+        font-size: 1.4rem !important;
+        font-weight: 900 !important;
+        height: 70px !important;
+        width: 100% !important;
+        border-radius: 12px !important;
+        border: none !important;
+        text-transform: uppercase !important;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.3) !important;
+    }
+
+    /* BOTÃO BUSCAR (NORMAL) - TEXTO BRANCO FORÇADO */
+    div.stButton > button {
+        background-color: #1e7e34 !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+
+    /* Estilo para os Uploaders */
     [data-testid="stFileUploader"] {
-        border: 2px dashed #000000 !important; /* Borda tracejada preta visível */
-        padding: 10px !important;
+        border: 2px dashed #000000 !important;
         background-color: #ffffff !important;
-        border-radius: 10px !important;
     }
     
-    /* Garante que o texto "Browse files" ou o nome do arquivo fiquem visíveis */
-    [data-testid="stFileUploader"] button {
-        background-color: #ffffff !important;
-        border: 1px solid #000000 !important;
-        color: #000000 !important;
-        height: 40px !important;
-        width: auto !important;
-        font-size: 1rem !important;
-    }
-    [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzone"] * {
-        color: #333333 !important; /* Texto de ajuda (Arraste arquivos) visível */
-    }
-
-    /* 7. Botões Principais (Verdes) */
-    .stButton button {
-        font-size: 1.2rem !important; 
-        font-weight: 800 !important; 
-        height: 60px !important;
-        background-color: #1e7e34 !important; 
-        color: #ffffff !important; 
-        border-radius: 10px !important;
-        border: none !important; 
-        width: 100% !important;
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.1) !important;
-    }
-    .stButton button:active { background-color: #1a6e2d !important; }
-
-    /* 8. Cards Estoque */
+    /* Cards do Estoque */
     .car-card { 
         border: 2px solid #000000; 
         border-radius: 15px; 
         padding: 15px; 
         background-color: #ffffff; 
         margin-bottom: 15px;
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.05) !important;
     }
-    .preco-destaque { 
-        color: #1e7e34 !important; 
-        font-size: 1.6rem !important; 
-        font-weight: 900 !important; 
-    }
+    .preco-destaque { color: #1e7e34 !important; font-size: 1.8rem !important; font-weight: 900 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 4. CONEXÃO E LOGIN ---
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-except Exception as e:
-    st.error("Erro ao conectar com a planilha. Verifique as credenciais.")
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 if "autenticado" not in st.session_state:
-    st.markdown("<h1 style='text-align: center; color: black;'>🚗 AMG Multimarcas</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🚗 AMG Multimarcas</h1>", unsafe_allow_html=True)
     with st.form("login"):
         u = st.text_input("Usuário")
         p = st.text_input("Senha", type="password")
-        if st.form_submit_button("ACESSAR SISTEMA", use_container_width=True):
+        if st.form_submit_button("ACESSAR SISTEMA"):
             if u == "amgmultimarcas" and p == "amg0031":
                 st.session_state["autenticado"] = True
                 st.rerun()
-            else: st.error("Dados de acesso incorretos.")
+            else: st.error("Erro nos dados.")
 else:
-    menu = st.sidebar.radio("Navegar:", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
-    st.sidebar.markdown("---")
-    if st.sidebar.button("Portas Fechadas (Sair)", use_container_width=True):
+    menu = st.sidebar.radio("Menu:", ["➕ Cadastrar Veículo", "📑 Gerenciar Estoque"])
+    if st.sidebar.button("Sair"):
         st.session_state.clear()
         st.rerun()
 
     # --- ABA: CADASTRAR ---
     if menu == "➕ Cadastrar Veículo":
-        st.markdown("<h2 style='color:black;'>📝 Cadastro de Veículo</h2>", unsafe_allow_html=True)
+        st.markdown("## 📝 Cadastro de Veículo")
         
         c_busca1, c_busca2 = st.columns([2, 1])
-        placa_in = c_busca1.text_input("🔍 Placa para Busca Automática:", placeholder="ABC1D23").upper()
+        placa_in = c_busca1.text_input("Placa para consulta:", placeholder="ABC1D23").upper()
         
         if "dados_fipe" not in st.session_state: st.session_state.dados_fipe = {}
 
-        if c_busca2.button("🔍 PUXAR DADOS", use_container_width=True):
+        if c_busca2.button("🔍 BUSCAR"):
             if placa_in:
-                with st.spinner("Consultando base da FIPE..."):
+                with st.spinner("Buscando..."):
                     res = consultar_dados_veiculo(placa_in)
                     if res:
                         st.session_state.dados_fipe = res.get("data", res)
                         st.success("Dados preenchidos!")
-                    else: st.error("Não encontrado ou erro na API.")
-            else: st.warning("Digite uma placa primeiro.")
+            else: st.warning("Digite a placa.")
 
         with st.form("form_veiculo", clear_on_submit=True):
             f = st.session_state.dados_fipe
@@ -179,40 +145,37 @@ else:
             with c1:
                 ano_fab = st.text_input("Ano Fabricação", value=str(f.get("ano_fabricacao", "")))
                 renavam = st.text_input("Renavam", value=f.get("renavam", ""))
-                cor = st.text_input("Cor (do documento)", value=f.get("cor", ""))
+                cor = st.text_input("Cor", value=f.get("cor", ""))
             with c2:
                 ano_mod = st.text_input("Ano Modelo", value=str(f.get("ano_modelo", "")))
                 chassi = st.text_input("Chassi", value=f.get("chassi", ""))
                 comb = st.text_input("Combustível", value=f.get("combustivel", ""))
 
-            # Valor e KM
             preco_sug = f.get("preco_fipe", 0.0)
             try: p_val = float(preco_sug)
             except: p_val = 0.0
             
-            v1, v2 = st.columns(2)
-            with v1:
-                preco = st.number_input("Preço de Venda (R$)", value=p_val, step=500.0)
-            with v2:
-                km = st.number_input("Quilometragem Atual", min_value=0)
+            v_col1, v_col2 = st.columns(2)
+            with v_col1:
+                preco = st.number_input("Preço de Venda (R$)", value=p_val)
+            with v_col2:
+                km = st.number_input("Quilometragem", min_value=0)
             
-            st.markdown("---")
-            foto_v = st.file_uploader("📷 Foto Principal do Carro", type=['jpg','png','jpeg'])
+            foto_v = st.file_uploader("📷 Foto Principal do Veículo", type=['jpg','png','jpeg'])
 
             st.markdown("---")
             st.subheader("👤 Proprietário / Titular (Opcional)")
-            nome_t = st.text_input("Nome Completo Titular")
-            cpf_t = st.text_input("CPF do Titular")
-            rg_t = st.text_input("RG do Titular")
-            end_t = st.text_input("Endereço Completo")
-            doc_t = st.file_uploader("📂 Foto Documento do Titular", type=['jpg','png','jpeg'])
+            nome_t = st.text_input("Nome Titular")
+            cpf_t = st.text_input("CPF")
+            rg_t = st.text_input("RG")
+            end_t = st.text_input("Endereço")
+            doc_t = st.file_uploader("📂 Foto Documento Titular", type=['jpg','png','jpeg'])
 
-            if st.form_submit_button("🚀 SALVAR NO ESTOQUE AMG", use_container_width=True):
+            # BOTÃO SALVAR COM TEXTO BRANCO GARANTIDO PELO CSS ACIMA
+            if st.form_submit_button("🚀 SALVAR NO ESTOQUE AMG"):
                 if modelo and placa and foto_v:
-                    with st.spinner('Salvando no banco de dados...'):
-                        # Upload Foto Carro
+                    with st.spinner('Gravando...'):
                         img_car = cloudinary.uploader.upload(foto_v)
-                        # Upload Doc Titular
                         img_doc = ""
                         if doc_t:
                             img_doc = cloudinary.uploader.upload(doc_t)['secure_url']
@@ -228,38 +191,29 @@ else:
                             "endereco_titular": end_t, "doc_titular": img_doc
                         }])
                         conn.update(worksheet="Estoque", data=pd.concat([df, novo], ignore_index=True))
-                        st.session_state.dados_fipe = {} # Limpa após salvar
-                        st.success("Veículo Cadastrado!")
+                        st.session_state.dados_fipe = {}
+                        st.success("Salvo com sucesso!")
                         st.rerun()
-                else: st.warning("Obrigatório: Modelo, Placa e Foto do Carro.")
+                else: st.warning("Modelo, Placa e Foto são obrigatórios.")
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
         df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all')
-        if df.empty: st.info("O estoque está vazio.")
+        if df.empty: st.info("Vazio.")
         else:
             for i, r in df.iterrows():
-                # Formatação dos anos e quilometragem
-                anos_formatado = f"{str(r['ano_fab']).replace('.0','')}/{str(r['ano_mod']).replace('.0','')}"
-                km_formatado = f"{int(r['km']):,}"
-                
                 st.markdown(f"""
                     <div class="car-card">
-                        <img src="{r['foto']}" style="width:100%; border-radius:10px; height:220px; object-fit:cover; border:1px solid #ddd;">
-                        <h3 style='color:black; margin: 10px 0px 5px 0px;'>{r['modelo']}</h3>
+                        <img src="{r['foto']}" style="width:100%; border-radius:10px; height:200px; object-fit:cover;">
+                        <h3>{r['modelo']}</h3>
                         <p class="preco-destaque">R$ {r['preco']:,.2f}</p>
-                        <p style='color:black; font-size: 1rem;'>
-                            <b>💳 Placa:</b> {r['placa']} | <b>📅 Ano:</b> {anos_formatado} | <b>🛣️ KM:</b> {km_formatado}<br>
-                            {"<b>👤 Titular:</b> " + str(r['nome_titular']) if r['nome_titular'] else ""}
-                        </p>
+                        <p><b>Placa:</b> {r['placa']} | <b>Ano:</b> {str(r['ano_fab']).replace('.0','')}/{str(r['ano_mod']).replace('.0','')}</p>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # Se houver documento do titular, mostra o botão
                 if 'doc_titular' in r and r['doc_titular']:
-                    st.link_button("📂 Ver Documento do Dono", r['doc_titular'], use_container_width=True)
+                    st.link_button("📂 Ver Documento", r['doc_titular'], use_container_width=True)
                 
-                # Botão Excluir
                 if st.button(f"🗑️ Excluir {r['placa']}", key=f"del_{i}", use_container_width=True):
                     conn.update(worksheet="Estoque", data=df.drop(i))
                     st.rerun()
