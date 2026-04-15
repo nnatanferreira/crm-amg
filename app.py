@@ -56,7 +56,7 @@ else:
 
     # --- ABA: CADASTRAR ---
     if menu == "➕ Cadastrar Veículo":
-        st.markdown("## 📝 Novo Cadastro de Veículo e Cliente")
+        st.markdown("## 📝 Novo Cadastro de Veículo")
         
         try:
             marcas = requests.get("https://fipe.parallelum.com.br/api/v2/cars/brands").json()
@@ -75,69 +75,60 @@ else:
                 ano_sel = st.selectbox("3. Ano Modelo", options=[""] + list(dict_anos.keys()))
 
                 if ano_sel:
-                    dados_fipe = requests.get(f"https://fipe.parallelum.com.br/api/v2/cars/brands/{dict_marcas[marca_n]}/models/{dict_modelos[modelo_n]}/years/{dict_anos[ano_sel]}").json()
+                    dfipe = requests.get(f"https://fipe.parallelum.com.br/api/v2/cars/brands/{dict_marcas[marca_n]}/models/{dict_modelos[modelo_n]}/years/{dict_anos[ano_sel]}").json()
                     
                     with st.form("form_cadastro"):
                         st.subheader("🚗 Informações do Veículo")
                         c1, c2 = st.columns(2)
-                        marca_v = c1.text_input("Marca", value=dados_fipe.get('brand'))
-                        modelo_v = c1.text_input("Modelo", value=dados_fipe.get('model'))
+                        marca_v = c1.text_input("Marca", value=dfipe.get('brand'))
+                        modelo_v = c1.text_input("Modelo", value=dfipe.get('model'))
                         placa_v = c1.text_input("Placa").upper()
-                        preco_v = c2.text_input("Preço de Venda", value=formatar_para_br(dados_fipe.get('price')))
-                        km_v = c2.text_input("KM Atual", value="0")
+                        
+                        preco_v = c2.text_input("Preço de Venda", value=formatar_para_br(dfipe.get('price')))
+                        km_v = c2.text_input("Quilometragem", value="0")
+                        comb_v = c2.text_input("Combustível", value=dfipe.get('fuel'))
                         
                         st.markdown("---")
                         c3, c4 = st.columns(2)
                         ren_v = c3.text_input("Renavam")
                         cha_v = c4.text_input("Chassi").upper()
                         cor_v = c3.text_input("Cor")
-                        comb_v = c4.text_input("Combustível", value=dados_fipe.get('fuel'))
-
-                        foto_v = st.file_uploader("📷 Foto do Veículo", type=['jpg','jpeg','png'])
-                        tit_v = st.text_input("Nome do Titular Atual (Documento)")
-                        doc_v = st.file_uploader("📂 Documento do Veículo", type=['jpg','jpeg','png'])
+                        foto_v = st.file_uploader("📷 Foto Principal (Para o Estoque)", type=['jpg','jpeg','png'])
 
                         st.markdown("---")
-                        st.subheader("👤 Dados do Cliente (Para Documentos)")
-                        cli_nome = st.text_input("Nome Completo do Comprador")
-                        cc1, cc2 = st.columns(2)
-                        cli_rg = cc1.text_input("RG")
-                        cli_cpf = cc2.text_input("CPF")
+                        st.subheader("👤 Dados do Titular (Conforme Documento)")
+                        tit_v = st.text_input("Nome Completo do Titular")
                         
-                        st.write("**Endereço do Comprador:**")
-                        cli_rua = st.text_input("Rua/Logradouro")
+                        cc1, cc2 = st.columns(2)
+                        tit_rg = cc1.text_input("RG do Titular")
+                        tit_cpf = cc2.text_input("CPF do Titular")
+                        
+                        st.write("**Endereço do Titular (Para Documentos):**")
+                        tit_rua = st.text_input("Rua/Logradouro")
                         cc3, cc4 = st.columns([1, 2])
-                        cli_num = cc3.text_input("Número")
-                        cli_comp = cc4.text_input("Complemento")
+                        tit_num = cc3.text_input("Número")
+                        tit_comp = cc4.text_input("Complemento")
                         cc5, cc6 = st.columns(2)
-                        cli_cid = cc5.text_input("Cidade")
-                        cli_est = cc6.selectbox("UF", ["SP", "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SE", "TO"])
+                        tit_cid = cc5.text_input("Cidade")
+                        tit_est = cc6.selectbox("UF", ["SP", "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SE", "TO"])
+                        
+                        doc_v = st.file_uploader("📂 Anexar Foto do Documento (CRLV/RG)", type=['jpg','jpeg','png'])
 
-                        if st.form_submit_button("🚀 SALVAR CADASTRO COMPLETO"):
+                        if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
                             if not placa_v: st.error("Placa obrigatória!"); st.stop()
-                            
-                            aviso = st.info("⏳ Salvando dados no sistema...")
+                            aviso = st.info("⏳ Salvando dados...")
                             url_img = cloudinary.uploader.upload(foto_v)['secure_url'] if foto_v else ""
                             url_doc = cloudinary.uploader.upload(doc_v)['secure_url'] if doc_v else ""
-                            
                             try: df_atual = conn.read(worksheet="Estoque", ttl=0).astype(str)
                             except: df_atual = pd.DataFrame()
-
                             novo = pd.DataFrame([{
-                                "marca": marca_v, "modelo": modelo_v, "placa": placa_v,
-                                "renavam": limpar_id(ren_v), "chassi": cha_v.strip(),
-                                "cor": cor_v, "combustivel": comb_v, "preco": formatar_para_br(preco_v),
-                                "km": limpar_id(km_v), "foto": url_img,
-                                "nome_titular": tit_v, "doc_titular": url_doc, "ano": ano_sel,
-                                # Novos campos do cliente
-                                "cli_nome": cli_nome, "cli_rg": cli_rg, "cli_cpf": cli_cpf,
-                                "cli_rua": cli_rua, "cli_num": cli_num, "cli_comp": cli_comp,
-                                "cli_cid": cli_cid, "cli_est": cli_est
+                                "marca": marca_v, "modelo": modelo_v, "placa": placa_v, "renavam": limpar_id(ren_v), "chassi": cha_v.strip(),
+                                "cor": cor_v, "combustivel": comb_v, "preco": formatar_para_br(preco_v), "km": limpar_id(km_v), "foto": url_img,
+                                "nome_titular": tit_v, "tit_rg": tit_rg, "tit_cpf": tit_cpf, "tit_rua": tit_rua, "tit_num": tit_num, 
+                                "tit_comp": tit_comp, "tit_cid": tit_cid, "tit_est": tit_est, "doc_titular": url_doc, "ano": ano_sel
                             }])
-
                             conn.update(worksheet="Estoque", data=pd.concat([df_atual, novo], ignore_index=True).astype(str))
-                            aviso.empty()
-                            st.success("✅ Veículo e Cliente cadastrados!"); time.sleep(1); st.rerun()
+                            aviso.empty(); st.success("✅ Veículo e Dados do Titular Salvos!"); time.sleep(1); st.rerun()
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
@@ -152,61 +143,47 @@ else:
             idx = st.session_state.edit_idx
             item = df.iloc[idx]
             st.markdown(f"### ✏️ Editando: {item['placa']}")
-            
             with st.form("form_edicao"):
-                st.subheader("🚗 Dados do Veículo")
+                st.subheader("🚗 Informações do Veículo")
                 c1, c2 = st.columns(2)
                 m_e = c1.text_input("Marca", value=item['marca'])
                 mo_e = c1.text_input("Modelo", value=item['modelo'])
                 pl_e = c1.text_input("Placa", value=item['placa']).upper()
                 pr_e = c2.text_input("Preço", value=formatar_para_br(item['preco']))
                 km_e = c2.text_input("KM", value=limpar_id(item['km']))
-                
+                comb_e = c2.text_input("Combustível", value=item.get('combustivel',''))
                 st.markdown("---")
                 c3, c4 = st.columns(2)
                 ren_e = c3.text_input("Renavam", value=limpar_id(item.get('renavam','')))
                 cha_e = c4.text_input("Chassi", value=item.get('chassi','')).upper()
                 cor_e = c3.text_input("Cor", value=item.get('cor',''))
-                comb_e = c4.text_input("Combustível", value=item.get('combustivel',''))
-                
-                f_v_e = st.file_uploader("Trocar Foto")
-                tit_e = st.text_input("Nome do Titular Documento", value=item.get('nome_titular',''))
-                f_d_e = st.file_uploader("Trocar Documento Veículo")
-                
+                f_v_e = st.file_uploader("Trocar Foto Principal")
                 st.markdown("---")
-                st.subheader("👤 Dados do Cliente (Comprador)")
-                cli_nome_e = st.text_input("Nome Completo", value=item.get('cli_nome',''))
+                st.subheader("👤 Dados do Titular")
+                tit_e = st.text_input("Nome Completo", value=item.get('nome_titular',''))
                 cc1e, cc2e = st.columns(2)
-                cli_rg_e = cc1e.text_input("RG", value=item.get('cli_rg',''))
-                cli_cpf_e = cc2e.text_input("CPF", value=item.get('cli_cpf',''))
-                cli_rua_e = st.text_input("Rua", value=item.get('cli_rua',''))
+                rg_e = cc1e.text_input("RG", value=item.get('tit_rg',''))
+                cpf_e = cc2e.text_input("CPF", value=item.get('tit_cpf',''))
+                rua_e = st.text_input("Rua", value=item.get('tit_rua',''))
                 cc3e, cc4e = st.columns([1, 2])
-                cli_num_e = cc3e.text_input("Número", value=item.get('cli_num',''))
-                cli_comp_e = cc4e.text_input("Complemento", value=item.get('cli_comp',''))
+                num_e = cc3e.text_input("Nº", value=item.get('tit_num',''))
+                comp_e = cc4e.text_input("Compl.", value=item.get('tit_comp',''))
                 cc5e, cc6e = st.columns(2)
-                cli_cid_e = cc5e.text_input("Cidade", value=item.get('cli_cid',''))
-                cli_est_e = cc6e.text_input("UF", value=item.get('cli_est','SP'))
-
+                cid_e = cc5e.text_input("Cidade", value=item.get('tit_cid',''))
+                est_e = cc6e.text_input("UF", value=item.get('tit_est','SP'))
+                f_d_e = st.file_uploader("Trocar Foto do Documento")
+                
                 col_btn1, col_btn2 = st.columns(2)
                 if col_btn1.form_submit_button("💾 SALVAR ALTERAÇÕES"):
-                    aviso_ed = st.info("⏳ Atualizando...")
                     url_v = cloudinary.uploader.upload(f_v_e)['secure_url'] if f_v_e else item['foto']
                     url_d = cloudinary.uploader.upload(f_d_e)['secure_url'] if f_d_e else item.get('doc_titular','')
-                    
-                    df.at[idx, 'marca'] = m_e; df.at[idx, 'modelo'] = mo_e
-                    df.at[idx, 'placa'] = pl_e; df.at[idx, 'preco'] = formatar_para_br(pr_e)
-                    df.at[idx, 'km'] = limpar_id(km_e); df.at[idx, 'renavam'] = limpar_id(ren_e)
-                    df.at[idx, 'chassi'] = cha_e; df.at[idx, 'cor'] = cor_e
-                    df.at[idx, 'combustivel'] = comb_e; df.at[idx, 'nome_titular'] = tit_e
-                    df.at[idx, 'foto'] = url_v; df.at[idx, 'doc_titular'] = url_d
-                    # Salva dados do cliente na edição
-                    df.at[idx, 'cli_nome'] = cli_nome_e; df.at[idx, 'cli_rg'] = cli_rg_e; df.at[idx, 'cli_cpf'] = cli_cpf_e
-                    df.at[idx, 'cli_rua'] = cli_rua_e; df.at[idx, 'cli_num'] = cli_num_e; df.at[idx, 'cli_comp'] = cli_comp_e
-                    df.at[idx, 'cli_cid'] = cli_cid_e; df.at[idx, 'cli_est'] = cli_est_e
-                    
+                    df.at[idx, 'marca'] = m_e; df.at[idx, 'modelo'] = mo_e; df.at[idx, 'placa'] = pl_e; df.at[idx, 'preco'] = formatar_para_br(pr_e)
+                    df.at[idx, 'km'] = limpar_id(km_e); df.at[idx, 'renavam'] = limpar_id(ren_e); df.at[idx, 'chassi'] = cha_e; df.at[idx, 'cor'] = cor_e
+                    df.at[idx, 'combustivel'] = comb_e; df.at[idx, 'nome_titular'] = tit_e; df.at[idx, 'foto'] = url_v; df.at[idx, 'doc_titular'] = url_d
+                    df.at[idx, 'tit_rg'] = rg_e; df.at[idx, 'tit_cpf'] = cpf_e; df.at[idx, 'tit_rua'] = rua_e
+                    df.at[idx, 'tit_num'] = num_e; df.at[idx, 'tit_comp'] = comp_e; df.at[idx, 'tit_cid'] = cid_e; df.at[idx, 'tit_est'] = est_e
                     conn.update(worksheet="Estoque", data=df.astype(str))
-                    aviso_ed.empty(); st.success("✅ Atualizado!"); del st.session_state.edit_idx; time.sleep(1); st.rerun()
-                
+                    st.success("✅ Atualizado!"); del st.session_state.edit_idx; time.sleep(1); st.rerun()
                 if col_btn2.form_submit_button("❌ CANCELAR"):
                     del st.session_state.edit_idx; st.rerun()
         else:
@@ -218,7 +195,7 @@ else:
                     else: col1.info("Sem foto")
                     col2.subheader(f"{r['marca']} {r['modelo']}")
                     col2.markdown(f"### R$ {formatar_para_br(r['preco'])}")
-                    col2.write(f"Placa: {r['placa']} | Cliente: {r.get('cli_nome', 'Não informado')}")
+                    col2.write(f"Placa: {r['placa']} | Titular: {r.get('nome_titular', '-')}")
                     btn_col1, btn_col2 = col2.columns(2)
                     if btn_col1.button(f"✏️ Editar", key=f"e{i}"):
                         st.session_state.edit_idx = i; st.rerun()
