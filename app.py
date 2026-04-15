@@ -10,7 +10,7 @@ from docx import Document
 from io import BytesIO
 from datetime import datetime
 
-# --- CONFIGURAÇÕES CLOUDINARY ---
+# --- 1. CONFIGURAÇÕES CLOUDINARY ---
 cloudinary.config( 
   cloud_name = "dybos073q", 
   api_key = "332571224149431", 
@@ -20,14 +20,40 @@ cloudinary.config(
 
 st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="wide")
 
-# --- FUNÇÃO DATA EXTENSA ---
+# --- 2. SEGURANÇA: LOGIN E EXPIRAÇÃO (1 HORA) ---
+if "autenticado" not in st.session_state:
+    st.session_state["autenticado"] = False
+if "login_time" not in st.session_state:
+    st.session_state["login_time"] = 0
+
+# Verifica se a sessão expirou (3600 segundos = 1 hora)
+if st.session_state["autenticado"]:
+    if time.time() - st.session_state["login_time"] > 3600:
+        st.session_state["autenticado"] = False
+        st.rerun()
+
+if not st.session_state["autenticado"]:
+    st.markdown("<h1 style='text-align: center;'>🚗 CRM AMG MULTIMARCAS</h1>", unsafe_allow_html=True)
+    with st.form("login_form"):
+        st.markdown("### 🔐 Login de Segurança")
+        u = st.text_input("Usuário")
+        p = st.text_input("Senha", type="password")
+        if st.form_submit_button("Acessar"):
+            if u == "amgmultimarcas" and p == "amg0031":
+                st.session_state["autenticado"] = True
+                st.session_state["login_time"] = time.time()
+                st.rerun()
+            else:
+                st.error("Usuário ou senha inválidos.")
+    st.stop()
+
+# --- 3. FUNÇÕES DE APOIO ---
 def obter_data_extensa():
     meses = {1: "JANEIRO", 2: "FEVEREIRO", 3: "MARÇO", 4: "ABRIL", 5: "MAIO", 6: "JUNHO", 
              7: "JULHO", 8: "AGOSTO", 9: "SETEMBRO", 10: "OUTUBRO", 11: "NOVEMBRO", 12: "DEZEMBRO"}
     hoje = datetime.now()
     return f"{hoje.day} DE {meses[hoje.month]} DE {hoje.year}"
 
-# --- FUNÇÃO DOCX ---
 def preencher_procuracao(dados_carro, dados_procurador):
     caminho = "modelo_procuracao.docx"
     if not os.path.exists(caminho): return None
@@ -53,6 +79,7 @@ def preencher_procuracao(dados_carro, dados_procurador):
             "{{NCPF}}": str(dados_procurador.get('cpf', '')),
             "{{NRG}}": str(dados_procurador.get('rg', ''))
         }
+        # Substitui mantendo a formatação original do Word
         for p in doc.paragraphs:
             for k, v in subs.items():
                 if k in p.text:
@@ -70,12 +97,15 @@ def preencher_procuracao(dados_carro, dados_procurador):
         return buf
     except: return None
 
-# --- CONEXÃO ---
+# --- 4. CONEXÃO E MENU ---
 conn = st.connection("gsheets", type=GSheetsConnection)
-
 menu = st.sidebar.radio("Navegação", ["➕ Novo Cadastro", "📑 Estoque", "👥 Procuradores"])
 
-# --- ABA: NOVO CADASTRO (IGUAL ANTES) ---
+if st.sidebar.button("Sair (Logoff)"):
+    st.session_state["autenticado"] = False
+    st.rerun()
+
+# --- ABA: NOVO CADASTRO ---
 if menu == "➕ Novo Cadastro":
     st.markdown("## 📝 Novo Cadastro de Veículo")
     try:
@@ -96,51 +126,37 @@ if menu == "➕ Novo Cadastro":
 
             if ano_sel:
                 fipe = requests.get(f"https://fipe.parallelum.com.br/api/v2/cars/brands/{dict_marcas[marca_n]}/models/{dict_modelos[modelo_n]}/years/{dict_anos[ano_sel]}").json()
-                
-                with st.form("form_completo"):
+                with st.form("form_cadastro_veiculo"):
                     st.subheader("🚗 Dados do Veículo")
                     c1, c2 = st.columns(2)
                     v_marca = c1.text_input("Marca", value=fipe.get('brand'))
                     v_modelo = c1.text_input("Modelo", value=fipe.get('model'))
                     v_placa = c1.text_input("Placa").upper()
                     v_foto = c1.file_uploader("Foto Principal", type=['jpg','png','jpeg'])
-                    
                     v_renavam = c2.text_input("Renavam")
                     v_chassi = c2.text_input("Chassi")
                     v_cor = c2.text_input("Cor")
                     v_ano = c2.text_input("Ano Modelo", value=ano_sel)
-
                     st.markdown("---")
                     st.subheader("📑 Dados do Proprietário")
                     cc1, cc2 = st.columns(2)
-                    t_nome = cc1.text_input("Nome Completo")
-                    t_cpf = cc1.text_input("CPF")
-                    t_rg = cc2.text_input("RG")
-                    t_rua = cc2.text_input("Rua / Logradouro")
-                    
+                    t_nome, t_cpf = cc1.text_input("Nome Completo"), cc1.text_input("CPF")
+                    t_rg, t_rua = cc2.text_input("RG"), cc2.text_input("Rua")
                     cc3, cc4, cc5 = st.columns([1, 2, 1])
-                    t_num = cc3.text_input("Nº")
-                    t_bairro = cc4.text_input("Bairro")
-                    t_est = cc5.selectbox("UF", ["RS", "SC", "PR", "SP"])
+                    t_num, t_bairro, t_est = cc3.text_input("Nº"), cc4.text_input("Bairro"), cc5.selectbox("UF", ["RS", "SC", "PR", "SP"])
 
                     if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
                         img_url = cloudinary.uploader.upload(v_foto)['secure_url'] if v_foto else ""
-                        df_atual = conn.read(worksheet="Estoque", ttl=0).astype(str)
-                        novo_veic = pd.DataFrame([{
-                            "marca": v_marca, "modelo": v_modelo, "placa": v_placa, "foto": img_url,
-                            "renavam": v_renavam, "chassi": v_chassi, "cor": v_cor, "ano": v_ano,
-                            "nome_titular": t_nome, "cpf_titular": t_cpf, "rg_titular": t_rg,
-                            "endereco_titular": t_rua, "tit_num": t_num, "tit_bairro": t_bairro,
-                            "tit_cid": "GRAVATAÍ", "tit_est": t_est
-                        }])
-                        conn.update(worksheet="Estoque", data=pd.concat([df_atual, novo_veic], ignore_index=True))
+                        df_est = conn.read(worksheet="Estoque", ttl=0).astype(str)
+                        novo = pd.DataFrame([{"marca": v_marca, "modelo": v_modelo, "placa": v_placa, "foto": img_url, "renavam": v_renavam, "chassi": v_chassi, "cor": v_cor, "ano": v_ano, "nome_titular": t_nome, "cpf_titular": t_cpf, "rg_titular": t_rg, "endereco_titular": t_rua, "tit_num": t_num, "tit_bairro": t_bairro, "tit_cid": "GRAVATAÍ", "tit_est": t_est}])
+                        conn.update(worksheet="Estoque", data=pd.concat([df_est, novo], ignore_index=True))
                         st.success("✅ Veículo Cadastrado!"); time.sleep(1); st.rerun()
 
-# --- OUTRAS ABAS (ESTOQUE E PROCURADORES) ---
+# --- ABA: ESTOQUE ---
 elif menu == "📑 Estoque":
-    st.header("Gerenciar Estoque")
+    st.header("📑 Estoque AMG Multimarcas")
     try:
-        df = conn.read(worksheet="Estoque", ttl=0).astype(str)
+        df = conn.read(worksheet="Estoque", ttl=0).dropna(how='all').astype(str)
         df_p = conn.read(worksheet="Procuradores", ttl=0).astype(str)
         procs = df_p['nome'].tolist()
         for i, r in df.iterrows():
@@ -149,19 +165,21 @@ elif menu == "📑 Estoque":
                 if r.get('foto'): c1.image(r['foto'], use_container_width=True)
                 c2.subheader(f"{r['marca']} {r['modelo']} ({r['placa']})")
                 if procs:
-                    p_sel = c2.selectbox("Procurador:", procs, key=f"s{i}")
+                    col_s, col_b = c2.columns([2, 1])
+                    p_sel = col_s.selectbox("Quem assina?", procs, key=f"s{i}")
                     dados_p = df_p[df_p['nome'] == p_sel].iloc[0].to_dict()
                     doc = preencher_procuracao(r, dados_p)
-                    if doc: c2.download_button("📜 Baixar Procuração", doc, f"Procuracao_{r['placa']}.docx", key=f"d{i}")
+                    if doc: col_b.download_button("📜 Baixar Doc", doc, f"Procuracao_{r['placa']}.docx", key=f"d{i}")
                 if c2.button("🗑️ Excluir", key=f"del{i}"):
                     conn.update(worksheet="Estoque", data=df.drop(i)); st.rerun()
-    except: st.error("Erro ao carregar dados.")
+    except: st.info("Estoque vazio.")
 
+# --- ABA: PROCURADORES ---
 elif menu == "👥 Procuradores":
-    st.subheader("Cadastrar Procurador")
-    with st.form("f_p"):
+    st.subheader("👥 Cadastro de Procuradores")
+    with st.form("f_p_novo"):
         n, c, r = st.text_input("Nome"), st.text_input("CPF"), st.text_input("RG")
-        if st.form_submit_button("Salvar"):
+        if st.form_submit_button("💾 Salvar"):
             df_p = conn.read(worksheet="Procuradores", ttl=0).astype(str)
             conn.update(worksheet="Procuradores", data=pd.concat([df_p, pd.DataFrame([{"nome":n,"cpf":c,"rg":r}])]))
-            st.success("Salvo!"); st.rerun()
+            st.success("✅ Salvo!"); st.rerun()
