@@ -177,7 +177,6 @@ else:
             for i, r in df.iterrows():
                 with st.container():
                     col1, col2 = st.columns([1, 2])
-                    # CORREÇÃO AQUI: Verifica se é string e se não está vazio antes do "in"
                     f_url = str(r.get('foto', ''))
                     if f_url and "http" in f_url: 
                         col1.image(f_url, use_container_width=True)
@@ -187,6 +186,17 @@ else:
                     col2.subheader(f"{r['marca']} {r['modelo']}")
                     col2.markdown(f"### R$ {formatar_para_br(r['preco'])}")
                     col2.write(f"Placa: {r['placa']} | KM: {limpar_id(r['km'])}")
-                    if col2.button(f"✏️ Editar", key=f"e{i}"):
+                    
+                    # BOTÕES DE AÇÃO
+                    btn_col1, btn_col2 = col2.columns(2)
+                    if btn_col1.button(f"✏️ Editar", key=f"e{i}"):
                         st.session_state.edit_idx = i; st.rerun()
+                    
+                    if btn_col2.button(f"🗑️ Excluir", key=f"d{i}"):
+                        # Remove a linha do DataFrame e atualiza a planilha
+                        df_novo = df.drop(i)
+                        conn.update(worksheet="Estoque", data=df_novo.astype(str))
+                        st.warning(f"Veículo {r['placa']} removido.")
+                        time.sleep(0.5); st.rerun()
+                        
                 st.markdown("---")
