@@ -78,7 +78,7 @@ else:
                     dfipe = requests.get(f"https://fipe.parallelum.com.br/api/v2/cars/brands/{dict_marcas[marca_n]}/models/{dict_modelos[modelo_n]}/years/{dict_anos[ano_sel]}").json()
                     
                     with st.form("form_cadastro"):
-                        st.subheader("🚗 Informações do Veículo")
+                        st.subheader("🚗 Informações Técnicas")
                         c1, c2 = st.columns(2)
                         marca_v = c1.text_input("Marca", value=dfipe.get('brand'))
                         modelo_v = c1.text_input("Modelo", value=dfipe.get('model'))
@@ -93,17 +93,17 @@ else:
                         ren_v = c3.text_input("Renavam")
                         cha_v = c4.text_input("Chassi").upper()
                         cor_v = c3.text_input("Cor")
-                        foto_v = st.file_uploader("📷 Foto Principal (Para o Estoque)", type=['jpg','jpeg','png'])
+                        foto_v = c4.file_uploader("📷 Foto Principal", type=['jpg','jpeg','png'])
 
                         st.markdown("---")
-                        st.subheader("👤 Dados do Titular (Conforme Documento)")
+                        st.subheader("👤 Dados do Titular (Para Documentos)")
                         tit_v = st.text_input("Nome Completo do Titular")
                         
                         cc1, cc2 = st.columns(2)
                         tit_rg = cc1.text_input("RG do Titular")
                         tit_cpf = cc2.text_input("CPF do Titular")
                         
-                        st.write("**Endereço do Titular (Para Documentos):**")
+                        st.write("**Endereço Completo:**")
                         tit_rua = st.text_input("Rua/Logradouro")
                         cc3, cc4 = st.columns([1, 2])
                         tit_num = cc3.text_input("Número")
@@ -112,7 +112,7 @@ else:
                         tit_cid = cc5.text_input("Cidade")
                         tit_est = cc6.selectbox("UF", ["SP", "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SE", "TO"])
                         
-                        doc_v = st.file_uploader("📂 Anexar Foto do Documento (CRLV/RG)", type=['jpg','jpeg','png'])
+                        doc_v = st.file_uploader("📂 Foto do Documento (Anexar depois se preferir)", type=['jpg','jpeg','png'])
 
                         if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
                             if not placa_v: st.error("Placa obrigatória!"); st.stop()
@@ -128,7 +128,7 @@ else:
                                 "tit_comp": tit_comp, "tit_cid": tit_cid, "tit_est": tit_est, "doc_titular": url_doc, "ano": ano_sel
                             }])
                             conn.update(worksheet="Estoque", data=pd.concat([df_atual, novo], ignore_index=True).astype(str))
-                            aviso.empty(); st.success("✅ Veículo e Dados do Titular Salvos!"); time.sleep(1); st.rerun()
+                            aviso.empty(); st.success("✅ Veículo Salvo!"); time.sleep(1); st.rerun()
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
@@ -144,7 +144,7 @@ else:
             item = df.iloc[idx]
             st.markdown(f"### ✏️ Editando: {item['placa']}")
             with st.form("form_edicao"):
-                st.subheader("🚗 Informações do Veículo")
+                st.subheader("🚗 Informações Técnicas")
                 c1, c2 = st.columns(2)
                 m_e = c1.text_input("Marca", value=item['marca'])
                 mo_e = c1.text_input("Modelo", value=item['modelo'])
@@ -157,7 +157,7 @@ else:
                 ren_e = c3.text_input("Renavam", value=limpar_id(item.get('renavam','')))
                 cha_e = c4.text_input("Chassi", value=item.get('chassi','')).upper()
                 cor_e = c3.text_input("Cor", value=item.get('cor',''))
-                f_v_e = st.file_uploader("Trocar Foto Principal")
+                f_v_e = c4.file_uploader("Trocar Foto Principal")
                 st.markdown("---")
                 st.subheader("👤 Dados do Titular")
                 tit_e = st.text_input("Nome Completo", value=item.get('nome_titular',''))
