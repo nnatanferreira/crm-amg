@@ -78,41 +78,40 @@ else:
                     dfipe = requests.get(f"https://fipe.parallelum.com.br/api/v2/cars/brands/{dict_marcas[marca_n]}/models/{dict_modelos[modelo_n]}/years/{dict_anos[ano_sel]}").json()
                     
                     with st.form("form_cadastro"):
-                        st.subheader("🚗 Informações Técnicas")
+                        st.subheader("🚗 Informações do Veículo")
                         c1, c2 = st.columns(2)
                         marca_v = c1.text_input("Marca", value=dfipe.get('brand'))
                         modelo_v = c1.text_input("Modelo", value=dfipe.get('model'))
                         placa_v = c1.text_input("Placa").upper()
+                        foto_v = c1.file_uploader("📷 Foto Principal (Exibição no Estoque)", type=['jpg','jpeg','png'])
                         
                         preco_v = c2.text_input("Preço de Venda", value=formatar_para_br(dfipe.get('price')))
                         km_v = c2.text_input("Quilometragem", value="0")
                         comb_v = c2.text_input("Combustível", value=dfipe.get('fuel'))
-                        
-                        st.markdown("---")
-                        c3, c4 = st.columns(2)
-                        ren_v = c3.text_input("Renavam")
-                        cha_v = c4.text_input("Chassi").upper()
-                        cor_v = c3.text_input("Cor")
-                        foto_v = c4.file_uploader("📷 Foto Principal", type=['jpg','jpeg','png'])
+                        cor_v = c2.text_input("Cor")
 
                         st.markdown("---")
-                        st.subheader("👤 Dados do Titular (Para Documentos)")
+                        st.subheader("📑 Dados do CRLV")
                         tit_v = st.text_input("Nome Completo do Titular")
                         
                         cc1, cc2 = st.columns(2)
-                        tit_rg = cc1.text_input("RG do Titular")
-                        tit_cpf = cc2.text_input("CPF do Titular")
+                        ren_v = cc1.text_input("Renavam")
+                        cha_v = cc2.text_input("Chassi").upper()
                         
-                        st.write("**Endereço Completo:**")
+                        cc3, cc4 = st.columns(2)
+                        tit_rg = cc3.text_input("RG do Titular")
+                        tit_cpf = cc4.text_input("CPF do Titular")
+                        
+                        st.write("**Endereço do Titular:**")
                         tit_rua = st.text_input("Rua/Logradouro")
-                        cc3, cc4 = st.columns([1, 2])
-                        tit_num = cc3.text_input("Número")
-                        tit_comp = cc4.text_input("Complemento")
-                        cc5, cc6 = st.columns(2)
-                        tit_cid = cc5.text_input("Cidade")
-                        tit_est = cc6.selectbox("UF", ["SP", "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SE", "TO"])
+                        cc5, cc6 = st.columns([1, 2])
+                        tit_num = cc5.text_input("Número")
+                        tit_comp = cc6.text_input("Complemento")
+                        cc7, cc8 = st.columns(2)
+                        tit_cid = cc7.text_input("Cidade")
+                        tit_est = cc8.selectbox("UF", ["SP", "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SE", "TO"])
                         
-                        doc_v = st.file_uploader("📂 Foto do Documento (Anexar depois se preferir)", type=['jpg','jpeg','png'])
+                        doc_v = st.file_uploader("📂 Anexar Documento (CRLV/RG - PDF ou Imagem)", type=['pdf','jpg','jpeg','png'])
 
                         if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
                             if not placa_v: st.error("Placa obrigatória!"); st.stop()
@@ -128,7 +127,7 @@ else:
                                 "tit_comp": tit_comp, "tit_cid": tit_cid, "tit_est": tit_est, "doc_titular": url_doc, "ano": ano_sel
                             }])
                             conn.update(worksheet="Estoque", data=pd.concat([df_atual, novo], ignore_index=True).astype(str))
-                            aviso.empty(); st.success("✅ Veículo Salvo!"); time.sleep(1); st.rerun()
+                            aviso.empty(); st.success("✅ Veículo Cadastrado!"); time.sleep(1); st.rerun()
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
@@ -144,34 +143,38 @@ else:
             item = df.iloc[idx]
             st.markdown(f"### ✏️ Editando: {item['placa']}")
             with st.form("form_edicao"):
-                st.subheader("🚗 Informações Técnicas")
+                st.subheader("🚗 Informações do Veículo")
                 c1, c2 = st.columns(2)
                 m_e = c1.text_input("Marca", value=item['marca'])
                 mo_e = c1.text_input("Modelo", value=item['modelo'])
                 pl_e = c1.text_input("Placa", value=item['placa']).upper()
+                f_v_e = c1.file_uploader("Trocar Foto Principal")
+                
                 pr_e = c2.text_input("Preço", value=formatar_para_br(item['preco']))
                 km_e = c2.text_input("KM", value=limpar_id(item['km']))
                 comb_e = c2.text_input("Combustível", value=item.get('combustivel',''))
+                cor_e = c2.text_input("Cor", value=item.get('cor',''))
+
                 st.markdown("---")
-                c3, c4 = st.columns(2)
-                ren_e = c3.text_input("Renavam", value=limpar_id(item.get('renavam','')))
-                cha_e = c4.text_input("Chassi", value=item.get('chassi','')).upper()
-                cor_e = c3.text_input("Cor", value=item.get('cor',''))
-                f_v_e = c4.file_uploader("Trocar Foto Principal")
-                st.markdown("---")
-                st.subheader("👤 Dados do Titular")
-                tit_e = st.text_input("Nome Completo", value=item.get('nome_titular',''))
+                st.subheader("📑 Dados do CRLV")
+                tit_e = st.text_input("Nome do Titular", value=item.get('nome_titular',''))
                 cc1e, cc2e = st.columns(2)
-                rg_e = cc1e.text_input("RG", value=item.get('tit_rg',''))
-                cpf_e = cc2e.text_input("CPF", value=item.get('tit_cpf',''))
+                ren_e = cc1e.text_input("Renavam", value=limpar_id(item.get('renavam','')))
+                cha_e = cc2e.text_input("Chassi", value=item.get('chassi','')).upper()
+                
+                cc3e, cc4e = st.columns(2)
+                rg_e = cc3e.text_input("RG", value=item.get('tit_rg',''))
+                cpf_e = cc4e.text_input("CPF", value=item.get('tit_cpf',''))
+                
                 rua_e = st.text_input("Rua", value=item.get('tit_rua',''))
-                cc3e, cc4e = st.columns([1, 2])
-                num_e = cc3e.text_input("Nº", value=item.get('tit_num',''))
-                comp_e = cc4e.text_input("Compl.", value=item.get('tit_comp',''))
-                cc5e, cc6e = st.columns(2)
-                cid_e = cc5e.text_input("Cidade", value=item.get('tit_cid',''))
-                est_e = cc6e.text_input("UF", value=item.get('tit_est','SP'))
-                f_d_e = st.file_uploader("Trocar Foto do Documento")
+                cc5e, cc6e = st.columns([1, 2])
+                num_e = cc5e.text_input("Nº", value=item.get('tit_num',''))
+                comp_e = cc6e.text_input("Compl.", value=item.get('tit_comp',''))
+                cc7e, cc8e = st.columns(2)
+                cid_e = cc7e.text_input("Cidade", value=item.get('tit_cid',''))
+                est_e = cc8e.text_input("UF", value=item.get('tit_est','SP'))
+                
+                f_d_e = st.file_uploader("Trocar Documento (PDF/Imagem)", type=['pdf','jpg','jpeg','png'])
                 
                 col_btn1, col_btn2 = st.columns(2)
                 if col_btn1.form_submit_button("💾 SALVAR ALTERAÇÕES"):
