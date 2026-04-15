@@ -6,8 +6,6 @@ import pandas as pd
 import requests
 import time
 import re
-from docx import Document
-from io import BytesIO
 
 # --- 1. CONFIGURAÇÕES CLOUDINARY ---
 cloudinary.config( 
@@ -21,56 +19,25 @@ st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="w
 
 # --- 2. FUNÇÕES DE APOIO ---
 def formatar_para_br(valor):
+    """Trata o valor vindo da FIPE ou do input para o padrão 43.900,00"""
     if not valor or str(valor).lower() in ["nan", "none", ""]: return "0,00"
     try:
-        if "R$" in str(valor): return str(valor).replace("R$", "").strip()
+        # Se já vier formatado da FIPE (ex: R$ 50.000,00), apenas remove o R$
+        if "R$" in str(valor):
+            return str(valor).replace("R$", "").strip()
+        
+        # Caso seja um número puro, formata
         texto = str(valor).replace('R$', '').strip()
         apenas_numeros = re.sub(r'[^\d]', '', texto.split(',')[0].split('.')[0])
         v = float(apenas_numeros)
         return f"{v:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
-    except: return str(valor)
+    except:
+        return str(valor)
 
 def limpar_id(valor):
+    """Remove .0 de campos como Renavam e KM"""
     s = str(valor).strip()
     return s.split('.')[0] if '.' in s else s
-
-def gerar_procuracao(dados_veiculo):
-    """Lê o modelo docx e substitui as chaves pelos dados da planilha"""
-    try:
-        # Você deve subir o arquivo modelo.docx no mesmo diretório do Github
-        doc = Document("modelo_procuracao.docx")
-        
-        # Mapeamento de chaves no Word para colunas na Planilha
-        substituicoes = {
-            "{{NOME_TITULAR}}": str(dados_veiculo.get('nome_titular', '')),
-            "{{RG}}": str(dados_veiculo.get('tit_rg', '')),
-            "{{CPF}}": str(dados_veiculo.get('tit_cpf', '')),
-            "{{RUA}}": str(dados_veiculo.get('tit_rua', '')),
-            "{{NUMERO}}": str(dados_veiculo.get('tit_num', '')),
-            "{{CIDADE}}": str(dados_veiculo.get('tit_cid', '')),
-            "{{ESTADO}}": str(dados_veiculo.get('tit_est', '')),
-            "{{PLACA}}": str(dados_veiculo.get('placa', '')),
-            "{{CHASSI}}": str(dados_veiculo.get('chassi', '')),
-            "{{RENAVAM}}": str(dados_veiculo.get('renavam', '')),
-            "{{MODELO}}": str(dados_veiculo.get('modelo', '')),
-            "{{MARCA}}": str(dados_veiculo.get('marca', '')),
-            "{{COR}}": str(dados_veiculo.get('cor', '')),
-            "{{DATA_HOJE}}": time.strftime("%d/%m/%Y")
-        }
-
-        for p in doc.paragraphs:
-            for codigo, valor in substituicoes.items():
-                if codigo in p.text:
-                    p.text = p.text.replace(codigo, valor)
-        
-        # Salva o arquivo em memória para download
-        conteudo_puro = BytesIO()
-        doc.save(conteudo_puro)
-        conteudo_puro.seek(0)
-        return conteudo_puro
-    except Exception as e:
-        st.error(f"Erro ao gerar documento: Verifique se o arquivo 'modelo_procuracao.docx' está no Github. Erro: {e}")
-        return None
 
 # --- 3. CONEXÃO ---
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -92,9 +59,10 @@ else:
         st.session_state.clear()
         st.rerun()
 
-    # --- ABA: CADASTRAR --- (Mantida sem alterações)
+    # --- ABA: CADASTRAR ---
     if menu == "➕ Cadastrar Veículo":
         st.markdown("## 📝 Novo Cadastro de Veículo")
+        
         try:
             marcas = requests.get("https://fipe.parallelum.com.br/api/v2/cars/brands").json()
             dict_marcas = {m['name']: m['code'] for m in marcas}
@@ -120,9 +88,11 @@ else:
                         marca_v = c1.text_input("Marca", value=dfipe.get('brand'))
                         modelo_v = c1.text_input("Modelo", value=dfipe.get('model'))
                         placa_v = c1.text_input("Placa").upper()
-                        foto_v = c1.file_uploader("📷 Foto Principal", type=['jpg','jpeg','png'])
+                        # Puxa o valor formatado direto da API
+                        valor_fipe_original = dfipe.get('price', '0,00')
+                        foto_v = c1.file_uploader("📷 Foto Principal (Exibição no Estoque)", type=['jpg','jpeg','png'])
                         
-                        preco_v = c2.text_input("Preço de Venda", value=formatar_para_br(dfipe.get('price')))
+                        preco_v = c2.text_input("Preço de Venda", value=formatar_para_br(valor_fipe_original))
                         km_v = c2.text_input("Quilometragem", value="0")
                         comb_v = c2.text_input("Combustível", value=dfipe.get('fuel'))
                         cor_v = c2.text_input("Cor")
@@ -130,9 +100,11 @@ else:
                         st.markdown("---")
                         st.subheader("📑 Dados do CRLV")
                         tit_v = st.text_input("Nome Completo do Titular")
+                        
                         cc1, cc2 = st.columns(2)
                         ren_v = cc1.text_input("Renavam")
                         cha_v = cc2.text_input("Chassi").upper()
+                        
                         cc3, cc4 = st.columns(2)
                         tit_rg = cc3.text_input("RG do Titular")
                         tit_cpf = cc4.text_input("CPF do Titular")
@@ -145,10 +117,12 @@ else:
                         cc7, cc8 = st.columns(2)
                         tit_cid = cc7.text_input("Cidade")
                         tit_est = cc8.selectbox("UF", ["SP", "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SE", "TO"])
-                        doc_v = st.file_uploader("📂 Documento (CRLV/RG)", type=['pdf','jpg','jpeg','png'])
+                        
+                        doc_v = st.file_uploader("📂 Anexar Documento (CRLV/RG - PDF ou Imagem)", type=['pdf','jpg','jpeg','png'])
 
                         if st.form_submit_button("🚀 SALVAR NO ESTOQUE"):
                             if not placa_v: st.error("Placa obrigatória!"); st.stop()
+                            aviso = st.info("⏳ Salvando dados...")
                             url_img = cloudinary.uploader.upload(foto_v)['secure_url'] if foto_v else ""
                             url_doc = cloudinary.uploader.upload(doc_v)['secure_url'] if doc_v else ""
                             try: df_atual = conn.read(worksheet="Estoque", ttl=0).astype(str)
@@ -160,7 +134,7 @@ else:
                                 "tit_comp": tit_comp, "tit_cid": tit_cid, "tit_est": tit_est, "doc_titular": url_doc, "ano": ano_sel
                             }])
                             conn.update(worksheet="Estoque", data=pd.concat([df_atual, novo], ignore_index=True).astype(str))
-                            st.success("✅ Cadastrado!"); time.sleep(1); st.rerun()
+                            aviso.empty(); st.success("✅ Veículo Cadastrado!"); time.sleep(1); st.rerun()
 
     # --- ABA: ESTOQUE ---
     elif menu == "📑 Gerenciar Estoque":
@@ -172,7 +146,6 @@ else:
         if df.empty:
             st.info("Estoque vazio.")
         elif "edit_idx" in st.session_state:
-            # (Seção de edição permanece igual...)
             idx = st.session_state.edit_idx
             item = df.iloc[idx]
             st.markdown(f"### ✏️ Editando: {item['placa']}")
@@ -182,20 +155,24 @@ else:
                 m_e = c1.text_input("Marca", value=item['marca'])
                 mo_e = c1.text_input("Modelo", value=item['modelo'])
                 pl_e = c1.text_input("Placa", value=item['placa']).upper()
-                f_v_e = c1.file_uploader("Trocar Foto")
+                f_v_e = c1.file_uploader("Trocar Foto Principal")
+                
                 pr_e = c2.text_input("Preço", value=formatar_para_br(item['preco']))
                 km_e = c2.text_input("KM", value=limpar_id(item['km']))
                 comb_e = c2.text_input("Combustível", value=item.get('combustivel',''))
                 cor_e = c2.text_input("Cor", value=item.get('cor',''))
+
                 st.markdown("---")
                 st.subheader("📑 Dados do CRLV")
                 tit_e = st.text_input("Nome do Titular", value=item.get('nome_titular',''))
                 cc1e, cc2e = st.columns(2)
                 ren_e = cc1e.text_input("Renavam", value=limpar_id(item.get('renavam','')))
                 cha_e = cc2e.text_input("Chassi", value=item.get('chassi','')).upper()
+                
                 cc3e, cc4e = st.columns(2)
                 rg_e = cc3e.text_input("RG", value=item.get('tit_rg',''))
                 cpf_e = cc4e.text_input("CPF", value=item.get('tit_cpf',''))
+                
                 rua_e = st.text_input("Rua", value=item.get('tit_rua',''))
                 cc5e, cc6e = st.columns([1, 2])
                 num_e = cc5e.text_input("Nº", value=item.get('tit_num',''))
@@ -203,10 +180,11 @@ else:
                 cc7e, cc8e = st.columns(2)
                 cid_e = cc7e.text_input("Cidade", value=item.get('tit_cid',''))
                 est_e = cc8e.text_input("UF", value=item.get('tit_est','SP'))
-                f_d_e = st.file_uploader("Trocar Documento")
+                
+                f_d_e = st.file_uploader("Trocar Documento (PDF/Imagem)", type=['pdf','jpg','jpeg','png'])
                 
                 col_btn1, col_btn2 = st.columns(2)
-                if col_btn1.form_submit_button("💾 SALVAR"):
+                if col_btn1.form_submit_button("💾 SALVAR ALTERAÇÕES"):
                     url_v = cloudinary.uploader.upload(f_v_e)['secure_url'] if f_v_e else item['foto']
                     url_d = cloudinary.uploader.upload(f_d_e)['secure_url'] if f_d_e else item.get('doc_titular','')
                     df.at[idx, 'marca'] = m_e; df.at[idx, 'modelo'] = mo_e; df.at[idx, 'placa'] = pl_e; df.at[idx, 'preco'] = formatar_para_br(pr_e)
@@ -228,23 +206,10 @@ else:
                     col2.subheader(f"{r['marca']} {r['modelo']}")
                     col2.markdown(f"### R$ {formatar_para_br(r['preco'])}")
                     col2.write(f"Placa: {r['placa']} | Titular: {r.get('nome_titular', '-')}")
-                    
-                    btn_c1, btn_c2, btn_c3 = col2.columns(3)
-                    if btn_c1.button(f"✏️ Editar", key=f"e{i}"):
+                    btn_col1, btn_col2 = col2.columns(2)
+                    if btn_col1.button(f"✏️ Editar", key=f"e{i}"):
                         st.session_state.edit_idx = i; st.rerun()
-                    
-                    # --- NOVO BOTÃO DE PROCURAÇÃO ---
-                    doc_pronto = gerar_procuracao(r)
-                    if doc_pronto:
-                        btn_c2.download_button(
-                            label="📜 Procuração",
-                            data=doc_pronto,
-                            file_name=f"Procuracao_{r['placa']}.docx",
-                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            key=f"doc{i}"
-                        )
-                    
-                    if btn_c3.button(f"🗑️ Excluir", key=f"d{i}"):
+                    if btn_col2.button(f"🗑️ Excluir", key=f"d{i}"):
                         df_novo = df.drop(i)
                         conn.update(worksheet="Estoque", data=df_novo.astype(str))
                         st.rerun()
