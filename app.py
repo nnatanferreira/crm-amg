@@ -19,9 +19,14 @@ st.set_page_config(page_title="CRM AMG Multimarcas", page_icon="🚗", layout="w
 
 # --- 2. FUNÇÕES DE APOIO ---
 def formatar_para_br(valor):
-    """Garante o formato 43.900,00 sem adicionar zeros extras"""
+    """Trata o valor vindo da FIPE ou do input para o padrão 43.900,00"""
     if not valor or str(valor).lower() in ["nan", "none", ""]: return "0,00"
     try:
+        # Se já vier formatado da FIPE (ex: R$ 50.000,00), apenas remove o R$
+        if "R$" in str(valor):
+            return str(valor).replace("R$", "").strip()
+        
+        # Caso seja um número puro, formata
         texto = str(valor).replace('R$', '').strip()
         apenas_numeros = re.sub(r'[^\d]', '', texto.split(',')[0].split('.')[0])
         v = float(apenas_numeros)
@@ -83,9 +88,11 @@ else:
                         marca_v = c1.text_input("Marca", value=dfipe.get('brand'))
                         modelo_v = c1.text_input("Modelo", value=dfipe.get('model'))
                         placa_v = c1.text_input("Placa").upper()
+                        # Puxa o valor formatado direto da API
+                        valor_fipe_original = dfipe.get('price', '0,00')
                         foto_v = c1.file_uploader("📷 Foto Principal (Exibição no Estoque)", type=['jpg','jpeg','png'])
                         
-                        preco_v = c2.text_input("Preço de Venda", value=formatar_para_br(dfipe.get('price')))
+                        preco_v = c2.text_input("Preço de Venda", value=formatar_para_br(valor_fipe_original))
                         km_v = c2.text_input("Quilometragem", value="0")
                         comb_v = c2.text_input("Combustível", value=dfipe.get('fuel'))
                         cor_v = c2.text_input("Cor")
